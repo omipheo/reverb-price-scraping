@@ -8,7 +8,7 @@ set -e  # Exit on error
 echo "🚀 Starting deployment..."
 
 # Configuration
-DEPLOY_PATH="${DEPLOY_PATH:-/var/www/price-scraping}"
+DEPLOY_PATH="${DEPLOY_PATH:-/root/reverb-price-scraping}"
 BRANCH="${BRANCH:-main}"
 
 # Navigate to deployment directory

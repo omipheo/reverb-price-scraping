@@ -44,7 +44,7 @@ fi
 
 # Create deployment directory
 echo "📁 Creating deployment directory..."
-DEPLOY_PATH="/var/www/price-scraping"
+DEPLOY_PATH="/root/reverb-price-scraping"
 sudo mkdir -p "$DEPLOY_PATH"
 sudo chown $USER:$USER "$DEPLOY_PATH"
 
