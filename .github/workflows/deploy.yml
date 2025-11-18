@@ -70,7 +70,7 @@ jobs:
               rm -rf * .[^.]* 2>/dev/null || true
             fi
             # Clone the repository
-            git clone https://github.com/${{ reverb-price-scraping }}.git .
+            git clone https://github.com/${{ github.repository }}.git .
           else
             echo "🔄 Pulling latest code..."
             git fetch origin
