@@ -49,6 +49,7 @@ jobs:
         timeout: 30s
         command_timeout: 10m
         debug: true
+        passphrase: ${{ secrets.SSH_PASSPHRASE || '' }}
         script: |
           cd ${{ secrets.DEPLOY_PATH || '/price-scraping' }}
           
