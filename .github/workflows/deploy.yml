@@ -35,6 +35,8 @@ jobs:
         username: ${{ secrets.SERVER_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.SSH_PORT || 22 }}
+        timeout: 30s
+        command_timeout: 10m
         script: |
           cd ${{ secrets.DEPLOY_PATH || '/var/www/price-scraping' }}
           

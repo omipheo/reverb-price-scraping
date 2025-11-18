@@ -100,7 +100,7 @@ sudo chown deploy:deploy /var/www/price-scraping
 
 ```bash
 # As deploy user (or root if using root)
-ssh-keygen -t ed25519 -C "github-actions-ionos" -f ~/.ssh/github_actions -N ""
+ssh-keygen -t rsa -b 4096 -C "github-actions-ionos" -f ~/.ssh/github_actions -N ""
 
 # Add public key to authorized_keys
 cat ~/.ssh/github_actions.pub >> ~/.ssh/authorized_keys

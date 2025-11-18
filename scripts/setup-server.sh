@@ -58,7 +58,7 @@ echo "y" | sudo ufw enable
 # Generate SSH key for GitHub Actions
 echo "🔑 Generating SSH key for GitHub Actions..."
 if [ ! -f ~/.ssh/github_actions ]; then
-    ssh-keygen -t ed25519 -C "github-actions" -f ~/.ssh/github_actions -N ""
+    ssh-keygen -t rsa -b 4096 -C "github-actions" -f ~/.ssh/github_actions -N ""
     cat ~/.ssh/github_actions.pub >> ~/.ssh/authorized_keys
     chmod 600 ~/.ssh/authorized_keys
     echo "✅ SSH key generated!"

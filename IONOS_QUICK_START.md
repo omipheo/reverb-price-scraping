@@ -24,8 +24,8 @@ npm install -g pm2
 mkdir -p /var/www/price-scraping
 cd /var/www/price-scraping
 
-# Generate SSH key for GitHub Actions
-ssh-keygen -t ed25519 -C "github-actions" -f ~/.ssh/github_actions -N ""
+# Generate SSH key for GitHub Actions (RSA)
+ssh-keygen -t rsa -b 4096 -C "github-actions" -f ~/.ssh/github_actions -N ""
 cat ~/.ssh/github_actions.pub >> ~/.ssh/authorized_keys
 
 # Display private key (COPY THIS!)
