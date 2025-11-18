@@ -51,7 +51,7 @@ jobs:
         debug: true
         passphrase: ${{ secrets.SSH_PASSPHRASE || '' }}
         script: |
-          DEPLOY_PATH="${{ secrets.DEPLOY_PATH || '/root/price-scraping' }}"
+          DEPLOY_PATH="${{ secrets.DEPLOY_PATH || '/root/reverb-price-scraping' }}"
           
           # Create directory if it doesn't exist
           if [ ! -d "$DEPLOY_PATH" ]; then
@@ -86,10 +86,10 @@ jobs:
           
           # Restart application with PM2
           echo "🔄 Restarting application..."
-          if pm2 list | grep -q "price-scraping"; then
+          if pm2 list | grep -q "reverb-price-scraping"; then
             pm2 restart price-scraping
           else
-            pm2 start ecosystem.config.js --name price-scraping
+            pm2 start ecosystem.config.js --name reverb-price-scraping
           fi
           
           # Save PM2 process list
