@@ -143,7 +143,22 @@ async function initializeApp() {
 }
 
 // Start the application
-initializeApp();
+initializeApp().catch((error) => {
+    console.error('❌ Unhandled error during initialization:', error);
+    process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+    // Don't exit, just log - let PM2 handle restarts
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+    console.error('❌ Uncaught Exception:', error);
+    process.exit(1);
+});
 
 mongoose.connection.on('connected', () => {
 	console.log('✅ MongoDB connected successfully');
