@@ -4,6 +4,8 @@ module.exports = {
     script: './index.js',
     instances: 1,
     exec_mode: 'fork', // Use fork mode instead of cluster for single instance
+    interpreter: 'node', // Use node from PATH (should be Node.js 22)
+    interpreter_args: '', // No additional args
     autorestart: true,
     watch: false,
     max_memory_restart: '1G',
