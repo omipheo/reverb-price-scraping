@@ -111,14 +111,22 @@ async function connectWithRetry() {
 	}
 }
 
-// Start connection with retry
-connectWithRetry();
-
-// Wait for database connection before starting server
-async function startServer() {
+// Start connection with retry and server
+async function initializeApp() {
     try {
-        // Wait for MongoDB to be ready
+        // Start MongoDB connection
+        await connectWithRetry();
+        
+        // Wait for MongoDB to be ready (with timeout)
+        const maxWaitTime = 30000; // 30 seconds
+        const startTime = Date.now();
+        
         while (mongoose.connection.readyState !== 1) {
+            if (Date.now() - startTime > maxWaitTime) {
+                console.error('❌ Timeout waiting for MongoDB connection');
+                console.error('💡 Please check if MongoDB is running: systemctl status mongod');
+                process.exit(1);
+            }
             console.log('⏳ Waiting for MongoDB connection...');
             await new Promise(resolve => setTimeout(resolve, 1000));
         }
@@ -129,13 +137,13 @@ async function startServer() {
         });
         
     } catch (error) {
-        console.error('❌ Failed to start server:', error);
+        console.error('❌ Failed to initialize application:', error);
         process.exit(1);
     }
 }
 
-// Start server after database connection
-startServer();
+// Start the application
+initializeApp();
 
 mongoose.connection.on('connected', () => {
 	console.log('✅ MongoDB connected successfully');
