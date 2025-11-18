@@ -1,0 +1,12 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Run Scraper",
+      "type": "shell",
+      "command": "node scrape.js",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}

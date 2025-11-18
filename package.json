@@ -1,0 +1,29 @@
+{
+  "name": "price-scrapping",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "cross-env NODE_ENV=development node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@octokit/rest": "^21.1.1",
+    "axios": "^1.10.0",
+    "cheerio": "^1.1.0",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "fuse.js": "^7.1.0",
+    "mongoose": "^8.16.4",
+    "puppeteer": "^24.12.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "string-similarity": "^4.0.4"
+  },
+  "devDependencies": {
+    "cross-env": "^7.0.3"
+  }
+}
