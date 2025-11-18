@@ -34,7 +34,8 @@ jobs:
         if [ -z "${{ secrets.SERVER_HOST }}" ]; then echo "❌ SERVER_HOST is not set"; exit 1; fi
         if [ -z "${{ secrets.SERVER_USER }}" ]; then echo "❌ SERVER_USER is not set"; exit 1; fi
         if [ -z "${{ secrets.REVERB_SSH }}" ]; then echo "❌ REVERB_SSH is not set or empty"; exit 1; fi
-        echo "✅ All required secrets are set"
+        if [ -z "${{ secrets.OPENAI_API_KEY }}" ]; then echo "⚠️ OPENAI_API_KEY is not set (application may not work properly)"; fi
+        echo "✅ All required deployment secrets are set"
         echo "SERVER_HOST: ${{ secrets.SERVER_HOST }}"
         echo "SERVER_USER: ${{ secrets.SERVER_USER }}"
         echo "REVERB_SSH length: $(echo -n '${{ secrets.REVERB_SSH }}' | wc -c) characters"
@@ -84,18 +85,30 @@ jobs:
           # Create logs directory if it doesn't exist
           mkdir -p logs
           
-          # Check if .env file exists
-          if [ ! -f ".env" ]; then
-            echo "⚠️ .env file not found. Creating template..."
-            cat > .env << EOF
-OPENAI_API_KEY=your_openai_api_key_here
-PORT=80
-NODE_ENV=production
-MONGO_URI=mongodb://127.0.0.1:27017/prices
-EOF
-            echo "❌ .env file created with template. Please update it with your actual values!"
-            echo "⚠️ Deployment will continue but application may fail without proper .env configuration."
-          fi
+          # Create .env file from GitHub Secrets (always overwrite to ensure latest values)
+          echo "🔐 Creating .env file from GitHub Secrets..."
+          
+          # Set defaults if secrets are not provided
+          OPENAI_KEY="${{ secrets.OPENAI_API_KEY }}"
+          PORT_VAL="${{ secrets.PORT }}"
+          NODE_ENV_VAL="${{ secrets.NODE_ENV }}"
+          MONGO_URI_VAL="${{ secrets.MONGO_URI }}"
+          
+          # Use defaults if empty
+          [ -z "$PORT_VAL" ] && PORT_VAL="80"
+          [ -z "$NODE_ENV_VAL" ] && NODE_ENV_VAL="production"
+          [ -z "$MONGO_URI_VAL" ] && MONGO_URI_VAL="mongodb://127.0.0.1:27017/prices"
+          
+          # Create .env file
+          echo "OPENAI_API_KEY=${OPENAI_KEY}" > .env
+          echo "PORT=${PORT_VAL}" >> .env
+          echo "NODE_ENV=${NODE_ENV_VAL}" >> .env
+          echo "MONGO_URI=${MONGO_URI_VAL}" >> .env
+          
+          # Set secure permissions on .env file (read/write for owner only)
+          chmod 600 .env
+          
+          echo "✅ .env file created with secure permissions"
           
           # Check if MongoDB is running
           echo "🔍 Checking MongoDB status..."

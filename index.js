@@ -36,8 +36,8 @@ console.log('=== END DEBUG ===');
 // Serve dashboard.html at the root URL
 // GraphQL endpoint
 // Try 127.0.0.1 first, fallback to localhost
-const MONGO_URI = 'mongodb://127.0.0.1:27017/prices';
-const MONGO_URI_FALLBACK = 'mongodb://localhost:27017/prices';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/prices';
+const MONGO_URI_FALLBACK = process.env.MONGO_URI_FALLBACK || 'mongodb://localhost:27017/prices';
 
 // Improved MongoDB connection with proper error handling and retry logic
 async function connectWithRetry() {
@@ -1305,7 +1305,7 @@ function fallbackBrandCheck(brandName) {
 // Price Guide Transaction Table endpoint
 async function getProductsPriceGuide(skip = 0) {
 	var products = await Pedal.find({}).limit(1000).skip(skip)
-	console.log(products)
+	// console.log(products)
 	console.log(`Processing batch starting at ${skip}, ${products.length} products`);
 	for (var product of products) {
 		await getPriceGuide(product)

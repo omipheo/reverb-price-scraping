@@ -156,16 +156,25 @@ price-scraping/
 
 ## Environment Variables
 
-- `OPENAI_API_KEY`: OpenAI API key for brand filtering
+See **[ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md)** for complete guide on managing environment variables securely.
+
+**Quick Setup:**
+1. Copy `.env.example` to `.env`: `cp .env.example .env`
+2. Edit `.env` with your actual values
+3. For production: Add secrets to GitHub Secrets (see [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md))
+
+**Required Variables:**
+- `OPENAI_API_KEY`: OpenAI API key for brand filtering (✅ Required)
 - `PORT`: Server port (default: 80)
 - `NODE_ENV`: Environment (development/production)
 - `MONGO_URI`: MongoDB connection string
 
 ## Documentation
 
+- **[ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md)** - Complete guide for managing environment variables securely
 - **[IONOS_QUICK_START.md](./IONOS_QUICK_START.md)** - Quick 5-step IONOS setup
 - **[IONOS_DEPLOYMENT.md](./IONOS_DEPLOYMENT.md)** - Complete IONOS deployment guide
-- **[DEBUGGING.md](./DEBUGGING.md)** - Debugging guide (if exists)
+- **[GITHUB_SECRETS_SETUP.md](./GITHUB_SECRETS_SETUP.md)** - How to configure GitHub Secrets for CI/CD
 
 ## License
 
