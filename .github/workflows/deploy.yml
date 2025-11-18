@@ -84,20 +84,67 @@ jobs:
           # Create logs directory if it doesn't exist
           mkdir -p logs
           
+          # Check if .env file exists
+          if [ ! -f ".env" ]; then
+            echo "⚠️ .env file not found. Creating template..."
+            cat > .env << EOF
+OPENAI_API_KEY=your_openai_api_key_here
+PORT=80
+NODE_ENV=production
+MONGO_URI=mongodb://127.0.0.1:27017/prices
+EOF
+            echo "❌ .env file created with template. Please update it with your actual values!"
+            echo "⚠️ Deployment will continue but application may fail without proper .env configuration."
+          fi
+          
+          # Check if MongoDB is running
+          echo "🔍 Checking MongoDB status..."
+          if ! systemctl is-active --quiet mongod 2>/dev/null && ! pgrep -x mongod > /dev/null; then
+            echo "⚠️ MongoDB doesn't appear to be running. Attempting to start..."
+            systemctl start mongod 2>/dev/null || service mongod start 2>/dev/null || echo "⚠️ Could not start MongoDB. Please start it manually."
+          else
+            echo "✅ MongoDB is running"
+          fi
+          
           # Restart application with PM2
           echo "🔄 Restarting application..."
-          if pm2 list | grep -q "reverb-price-scraping"; then
-            pm2 restart price-scraping
-          else
-            pm2 start ecosystem.config.js --name reverb-price-scraping
+          
+          # Stop and delete existing process if it exists (handles errored processes)
+          if pm2 list | grep -q "price-scraping"; then
+            echo "🛑 Stopping existing process..."
+            pm2 stop price-scraping || true
+            pm2 delete price-scraping || true
           fi
+          
+          # Start the application using ecosystem.config.js
+          echo "🚀 Starting application..."
+          pm2 start ecosystem.config.js
+          
+          # Wait a moment for the process to start
+          sleep 3
           
           # Save PM2 process list
           pm2 save
           
-          # Show status
+          # Show status and logs if errored
           echo "📊 Application status:"
           pm2 status
+          
+          # Check if process is errored and show logs
+          if pm2 list | grep "price-scraping" | grep -q "errored"; then
+            echo "❌ Process is errored. Showing error logs:"
+            pm2 logs price-scraping --err --lines 50 --nostream || true
+            echo ""
+            echo "📋 Showing all logs:"
+            pm2 logs price-scraping --lines 30 --nostream || true
+            echo ""
+            echo "💡 Common issues:"
+            echo "   - MongoDB not running: systemctl start mongod"
+            echo "   - Missing .env file or OPENAI_API_KEY"
+            echo "   - Port 80 already in use (check with: sudo lsof -i :80)"
+            echo "   - Missing dependencies (run: npm ci --production)"
+            exit 1
+          fi
           
           echo "✅ Deployment completed successfully!"
 
