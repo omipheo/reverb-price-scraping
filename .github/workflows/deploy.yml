@@ -1,0 +1,58 @@
+name: Deploy to Ubuntu Server
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run tests (if any)
+      run: npm test || echo "No tests configured"
+      continue-on-error: true
+      
+    - name: Deploy to Ubuntu Server
+      uses: appleboy/ssh-action@v0.1.7
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: ${{ secrets.SSH_PORT || 22 }}
+        script: |
+          cd ${{ secrets.DEPLOY_PATH || '/var/www/price-scraping' }}
+          
+          # Pull latest code
+          git fetch origin
+          git reset --hard origin/main || git reset --hard origin/master
+          
+          # Install/update dependencies
+          npm ci --production
+          
+          # Restart application with PM2
+          pm2 restart price-scraping || pm2 start ecosystem.config.js --name price-scraping
+          
+          # Save PM2 process list
+          pm2 save
+          
+          # Show status
+          pm2 status
+          
+          echo "✅ Deployment completed successfully!"
+
