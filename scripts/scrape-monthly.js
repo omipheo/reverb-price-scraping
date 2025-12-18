@@ -697,58 +697,80 @@ async function main() {
     }
   }
 
-  for (let i = 0; i < allDiscoveryQueries.length; i++) {
-    const query = allDiscoveryQueries[i];
-    console.log(`\n[${i + 1}/${allDiscoveryQueries.length}] Discovering products for: "${query}"`);
+  // Process queries in parallel batches for much faster execution
+  const CONCURRENT_QUERIES = 5; // Process 5 queries at the same time
+  const BATCH_SIZE = 50; // Process 50 queries, then save batch
+  
+  console.log(`\n⚡ Using parallel processing: ${CONCURRENT_QUERIES} queries concurrently`);
+  console.log(`   This will be ~${CONCURRENT_QUERIES}x faster than sequential processing\n`);
+
+  for (let batchStart = 0; batchStart < allDiscoveryQueries.length; batchStart += BATCH_SIZE) {
+    const batchEnd = Math.min(batchStart + BATCH_SIZE, allDiscoveryQueries.length);
+    const batch = allDiscoveryQueries.slice(batchStart, batchEnd);
     
-    try {
-      // Use the determined approach (with or without excludedCategoryUuids)
-      const csps = await discoverAllCsps(query, 2000, useExcludedCategories);
-      console.log(`   Found ${csps.length} products`);
-      
-      for (const csp of csps) {
-        if (!discoveredProducts.has(csp.canonicalProductId)) {
-          discoveredProducts.set(csp.canonicalProductId, csp);
-        }
+    console.log(`\n📦 Processing batch ${Math.floor(batchStart/BATCH_SIZE) + 1}/${Math.ceil(allDiscoveryQueries.length/BATCH_SIZE)} (queries ${batchStart + 1}-${batchEnd})`);
+    
+    // Process queries in parallel with concurrency limit
+    const processQuery = async (query, index) => {
+      try {
+        const csps = await discoverAllCsps(query, 2000, useExcludedCategories);
+        return { query, csps, success: true };
+      } catch (error) {
+        console.error(`   ⚠️ Error for "${query}":`, error.message);
+        return { query, csps: [], success: false };
       }
+    };
+    
+    // Process in chunks of CONCURRENT_QUERIES
+    for (let i = 0; i < batch.length; i += CONCURRENT_QUERIES) {
+      const chunk = batch.slice(i, i + CONCURRENT_QUERIES);
+      const results = await Promise.all(chunk.map((q, idx) => processQuery(q, i + idx)));
       
-      console.log(`   Total unique products discovered: ${discoveredProducts.size}`);
-      
-      // Save products in batches during discovery so user can see data appearing
-      // Save first product immediately, then every 100 new products
-      const newProducts = Array.from(discoveredProducts.values()).filter(
-        p => !savedProductIds.has(p.canonicalProductId)
-      );
-      
-      if (newProducts.length > 0 && (savedProductIds.size === 0 || newProducts.length >= 100)) {
-        const productsToSave = savedProductIds.size === 0 
-          ? newProducts.slice(0, 1) // Save first product immediately
-          : newProducts.slice(0, 100); // Then save in batches of 100
-        
-        console.log(`   💾 Saving ${productsToSave.length} products to MongoDB (batch save during discovery)...`);
-        let savedInBatch = 0;
-        for (const product of productsToSave) {
-          try {
-            const result = await upsertProductFromCsp(product);
-            if (result.ok) {
-              savedProductIds.add(product.canonicalProductId);
-              savedInBatch++;
+      // Aggregate results
+      for (const result of results) {
+        if (result.success) {
+          for (const csp of result.csps) {
+            if (!discoveredProducts.has(csp.canonicalProductId)) {
+              discoveredProducts.set(csp.canonicalProductId, csp);
             }
-            // Small delay to avoid overwhelming the API
-            await new Promise((res) => setTimeout(res, 100));
-          } catch (err) {
-            // Continue with other products if one fails
           }
         }
-        console.log(`   ✅ Saved ${savedInBatch} products to MongoDB! Total saved: ${savedProductIds.size}. Check MongoDB Compass to see them.`);
       }
       
-      // Progress update every 10 queries
-      if ((i + 1) % 10 === 0) {
-        console.log(`\n📊 Progress: ${i + 1}/${allDiscoveryQueries.length} queries, ${discoveredProducts.size} unique products so far`);
+      const currentQuery = batchStart + i + chunk.length;
+      console.log(`   ✅ Processed ${currentQuery}/${allDiscoveryQueries.length} queries, ${discoveredProducts.size} unique products`);
+      
+      // Small delay between chunks to respect rate limits
+      if (i + CONCURRENT_QUERIES < batch.length) {
+        await new Promise((res) => setTimeout(res, 200));
       }
-    } catch (error) {
-      console.error(`   ⚠️ Error discovering products for "${query}":`, error.response?.data || error.message);
+    }
+    
+    // Save products after each batch
+    const newProducts = Array.from(discoveredProducts.values()).filter(
+      p => !savedProductIds.has(p.canonicalProductId)
+    );
+    
+    if (newProducts.length > 0) {
+      const productsToSave = savedProductIds.size === 0 
+        ? newProducts.slice(0, Math.min(10, newProducts.length)) // Save first 10 immediately
+        : newProducts.slice(0, 200); // Then save in batches of 200
+      
+      console.log(`   💾 Saving ${productsToSave.length} products to MongoDB...`);
+      let savedInBatch = 0;
+      for (const product of productsToSave) {
+        try {
+          const result = await upsertProductFromCsp(product);
+          if (result.ok) {
+            savedProductIds.add(product.canonicalProductId);
+            savedInBatch++;
+          }
+          await new Promise((res) => setTimeout(res, 50)); // Reduced delay for parallel processing
+        } catch (err) {
+          // Continue with other products if one fails
+        }
+      }
+      console.log(`   ✅ Saved ${savedInBatch} products! Total saved: ${savedProductIds.size}`);
     }
   }
 
@@ -765,31 +787,59 @@ async function main() {
   console.log(`   Products will be saved to: pedal_prices_v2.products`);
   console.log(`   Check MongoDB Compass for database 'pedal_prices_v2' (not 'prices')`);
 
-  // Phase 2: Scrape price data for all discovered products
+  // Phase 2: Scrape price data for all discovered products (parallel processing)
   const products = Array.from(discoveredProducts.values());
+  const CONCURRENT_SCRAPES = 3; // Process 3 products concurrently (price fetching is heavier)
+  const SCRAPE_BATCH_SIZE = 100;
+  
+  console.log(`\n⚡ Phase 2: Using parallel processing (${CONCURRENT_SCRAPES} concurrent scrapes)`);
+  
   let successCount = 0;
   let failCount = 0;
 
-  for (let i = 0; i < products.length; i++) {
-    const product = products[i];
-    console.log(`\n[${i + 1}/${products.length}] Scraping: ${product.title || product.canonicalProductId}`);
+  for (let batchStart = 0; batchStart < products.length; batchStart += SCRAPE_BATCH_SIZE) {
+    const batchEnd = Math.min(batchStart + SCRAPE_BATCH_SIZE, products.length);
+    const batch = products.slice(batchStart, batchEnd);
     
-    try {
-      const result = await upsertProductFromCsp(product);
-      if (result.ok) {
-        successCount++;
-        console.log(`   ✅ Saved: ${result.txCount} transactions, median: $${result.median}`);
-      } else {
-        failCount++;
-        console.log(`   ⚠️ ${result.reason}`);
+    console.log(`\n📦 Scraping batch ${Math.floor(batchStart/SCRAPE_BATCH_SIZE) + 1}/${Math.ceil(products.length/SCRAPE_BATCH_SIZE)} (${batchStart + 1}-${batchEnd} of ${products.length})`);
+    
+    // Process products in parallel with concurrency limit
+    for (let i = 0; i < batch.length; i += CONCURRENT_SCRAPES) {
+      const chunk = batch.slice(i, i + CONCURRENT_SCRAPES);
+      const results = await Promise.all(
+        chunk.map(async (product) => {
+          try {
+            const result = await upsertProductFromCsp(product);
+            if (result.ok) {
+              return { success: true, product: product.title || product.canonicalProductId, txCount: result.txCount, median: result.median };
+            } else {
+              return { success: false, product: product.title || product.canonicalProductId, reason: result.reason };
+            }
+          } catch (error) {
+            return { success: false, product: product.title || product.canonicalProductId, error: error.message };
+          }
+        })
+      );
+      
+      // Count results
+      for (const result of results) {
+        if (result.success) {
+          successCount++;
+          if ((successCount + failCount) % 10 === 0) {
+            console.log(`   ✅ Progress: ${successCount} saved, ${failCount} failed (${successCount + failCount}/${products.length})`);
+          }
+        } else {
+          failCount++;
+        }
       }
-    } catch (error) {
-      failCount++;
-      console.error(`   ❌ Error:`, error.message);
+      
+      // Small delay between chunks
+      if (i + CONCURRENT_SCRAPES < batch.length) {
+        await new Promise((res) => setTimeout(res, 150));
+      }
     }
-
-    // Be polite with rate limiting
-    await new Promise((res) => setTimeout(res, 250));
+    
+    console.log(`   📊 Batch complete: ${successCount} saved, ${failCount} failed`);
   }
 
   console.log(`\n✅ Scraping complete!`);
