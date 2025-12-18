@@ -508,6 +508,9 @@ async function main() {
   await mongoose.connect(MONGO_URI);
   console.log("✅ Mongo connected:", MONGO_URI);
   
+  // Extract database name from MONGO_URI for display
+  const dbName = MONGO_URI.split('/').pop().split('?')[0] || 'pedal_prices_v2';
+  
   // Create database immediately by creating the collection
   // This ensures the database exists in MongoDB Compass right away
   try {
@@ -523,8 +526,8 @@ async function main() {
       priceGuideSummary: { all: {}, byCondition: {} }
     });
     await Product.deleteOne({ canonicalProductId: "__init__" });
-    console.log("📦 Database 'pedal_prices_v2' and collection 'products' created!");
-    console.log("   ✅ You should now see 'pedal_prices_v2' database in MongoDB Compass");
+    console.log(`📦 Database '${dbName}' and collection 'products' created!`);
+    console.log(`   ✅ You should now see '${dbName}' database in MongoDB Compass`);
     console.log("   💡 Refresh MongoDB Compass (F5) if you don't see it yet");
   } catch (error) {
     console.log("⚠️ Could not create database immediately:", error.message);
@@ -784,8 +787,8 @@ async function main() {
   }
   
   console.log(`\n📥 Starting price data scraping phase...`);
-  console.log(`   Products will be saved to: pedal_prices_v2.products`);
-  console.log(`   Check MongoDB Compass for database 'pedal_prices_v2' (not 'prices')`);
+  console.log(`   Products will be saved to: ${dbName}.products`);
+  console.log(`   Check MongoDB Compass for database '${dbName}'`);
 
   // Phase 2: Scrape price data for all discovered products (parallel processing)
   const products = Array.from(discoveredProducts.values());
