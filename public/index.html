@@ -14,12 +14,30 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             background: white;
             border-radius: 15px;
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
             padding: 30px;
             margin-top: 20px;
+        }
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            min-height: 600px;
+        }
+        .history-sidebar {
+            width: 33.333%;
+            min-width: 300px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            overflow-y: auto;
+            max-height: calc(100vh - 200px);
+        }
+        .main-content {
+            width: 66.666%;
+            flex: 1;
         }
         h1 {
             color: #667eea;
@@ -140,19 +158,23 @@
             </div>
         </div>
 
-        <!-- Calculation History Section -->
-        <div id="historySection" style="display: none;" class="mb-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Calculation History</h5>
-                </div>
-                <div class="card-body">
+        <!-- Main Layout: History Sidebar + Main Content -->
+        <div class="main-layout">
+            <!-- Left Sidebar: Calculation History -->
+            <div class="history-sidebar">
+                <div id="historySection" style="display: none;">
+                    <h5 class="mb-3"><i class="bi bi-clock-history"></i> Calculation History</h5>
                     <div id="historyList"></div>
                 </div>
+                <div id="historyPlaceholder" class="text-center text-muted" style="padding: 40px 0;">
+                    <i class="bi bi-clock-history" style="font-size: 3rem; opacity: 0.3;"></i>
+                    <p class="mt-3">Login to see your calculation history</p>
+                </div>
             </div>
-        </div>
-        
-        <!-- Input Section -->
+
+            <!-- Right Main Content -->
+            <div class="main-content">
+                <!-- Input Section -->
         <div class="input-section">
             <h3 class="mb-4">Input Method</h3>
             
@@ -216,12 +238,14 @@
             </div>
         </div>
 
-        <!-- Loading Indicator -->
-        <div class="loading" id="loadingIndicator" style="display: none;">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+                <!-- Loading Indicator -->
+                <div class="loading" id="loadingIndicator" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3">Processing pedals and calculating prices...</p>
+                </div>
             </div>
-            <p class="mt-3">Processing pedals and calculating prices...</p>
         </div>
     </div>
 
@@ -259,6 +283,7 @@
             document.getElementById('loginBtn').style.display = 'none';
             document.getElementById('logoutBtn').style.display = 'inline';
             document.getElementById('historySection').style.display = 'block';
+            document.getElementById('historyPlaceholder').style.display = 'none';
         }
 
         function updateUIForLoggedOut() {
@@ -266,6 +291,7 @@
             document.getElementById('loginBtn').style.display = 'inline';
             document.getElementById('logoutBtn').style.display = 'none';
             document.getElementById('historySection').style.display = 'none';
+            document.getElementById('historyPlaceholder').style.display = 'block';
             currentUser = null;
         }
 
@@ -363,37 +389,28 @@
                 const historyList = document.getElementById('historyList');
                 if (data.calculations && data.calculations.length > 0) {
                     historyList.innerHTML = `
-                        <div class="table-responsive">
-                            <table class="table table-sm">
-                                <thead>
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Title</th>
-                                        <th>Type</th>
-                                        <th>Total Price</th>
-                                        <th>Total Offer</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${data.calculations.map(calc => `
-                                        <tr>
-                                            <td>${new Date(calc.createdAt).toLocaleString()}</td>
-                                            <td>${calc.title}</td>
-                                            <td>${calc.inputType}</td>
-                                            <td>$${calc.totalPrice.toFixed(2)}</td>
-                                            <td>$${calc.totalOffer.toFixed(2)}</td>
-                                            <td>
-                                                <button class="btn btn-sm btn-primary" onclick="loadCalculation('${calc._id}')">View</button>
-                                            </td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
+                        <div class="list-group">
+                            ${data.calculations.map(calc => `
+                                <div class="list-group-item list-group-item-action" style="cursor: pointer; margin-bottom: 8px; border-radius: 8px;" onclick="loadCalculation('${calc._id}')">
+                                    <div class="d-flex w-100 justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">${calc.title}</h6>
+                                            <small class="text-muted">
+                                                <i class="bi bi-${calc.inputType === 'text' ? 'textarea-t' : 'file-earmark-spreadsheet'}"></i> ${calc.inputType}
+                                                <span class="ms-2"><i class="bi bi-calendar"></i> ${new Date(calc.createdAt).toLocaleDateString()}</span>
+                                            </small>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 d-flex justify-content-between">
+                                        <small><strong>Price:</strong> $${calc.totalPrice.toFixed(2)}</small>
+                                        <small><strong>Offer:</strong> $${calc.totalOffer.toFixed(2)}</small>
+                                    </div>
+                                </div>
+                            `).join('')}
                         </div>
                     `;
                 } else {
-                    historyList.innerHTML = '<p class="text-muted">No calculation history yet.</p>';
+                    historyList.innerHTML = '<p class="text-muted text-center">No calculation history yet.</p>';
                 }
             } catch (error) {
                 console.error('Error loading history:', error);
