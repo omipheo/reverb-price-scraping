@@ -163,7 +163,12 @@
             <!-- Left Sidebar: Calculation History -->
             <div class="history-sidebar">
                 <div id="historySection" style="display: none;">
-                    <h5 class="mb-3"><i class="bi bi-clock-history"></i> Calculation History</h5>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0"><i class="bi bi-clock-history"></i> Calculation History</h5>
+                        <button class="btn btn-sm btn-outline-danger" onclick="clearAllHistory()" title="Clear all history">
+                            <i class="bi bi-trash"></i> Clear
+                        </button>
+                    </div>
                     <div id="historyList"></div>
                 </div>
                 <div id="historyPlaceholder" class="text-center text-muted" style="padding: 40px 0;">
@@ -391,19 +396,22 @@
                     historyList.innerHTML = `
                         <div class="list-group">
                             ${data.calculations.map(calc => `
-                                <div class="list-group-item list-group-item-action" style="cursor: pointer; margin-bottom: 8px; border-radius: 8px;" onclick="loadCalculation('${calc._id}')">
+                                <div class="list-group-item" style="margin-bottom: 8px; border-radius: 8px;">
                                     <div class="d-flex w-100 justify-content-between align-items-start">
-                                        <div class="flex-grow-1">
+                                        <div class="flex-grow-1" style="cursor: pointer;" onclick="loadCalculation('${calc._id}')">
                                             <h6 class="mb-1">${calc.title}</h6>
                                             <small class="text-muted">
                                                 <i class="bi bi-${calc.inputType === 'text' ? 'textarea-t' : 'file-earmark-spreadsheet'}"></i> ${calc.inputType}
                                                 <span class="ms-2"><i class="bi bi-calendar"></i> ${new Date(calc.createdAt).toLocaleDateString()}</span>
                                             </small>
+                                            <div class="mt-2 d-flex justify-content-between">
+                                                <small><strong>Price:</strong> $${calc.totalPrice.toFixed(2)}</small>
+                                                <small><strong>Offer:</strong> $${calc.totalOffer.toFixed(2)}</small>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="mt-2 d-flex justify-content-between">
-                                        <small><strong>Price:</strong> $${calc.totalPrice.toFixed(2)}</small>
-                                        <small><strong>Offer:</strong> $${calc.totalOffer.toFixed(2)}</small>
+                                        <button class="btn btn-sm btn-outline-danger ms-2" onclick="deleteCalculation('${calc._id}', event)" title="Delete this calculation">
+                                            <i class="bi bi-x"></i>
+                                        </button>
                                     </div>
                                 </div>
                             `).join('')}
@@ -414,6 +422,62 @@
                 }
             } catch (error) {
                 console.error('Error loading history:', error);
+            }
+        }
+
+        async function clearAllHistory() {
+            if (!currentUser) return;
+            
+            if (!confirm('Are you sure you want to delete ALL calculation history? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/calculations', {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    alert(`Successfully deleted ${data.deletedCount} calculation(s)`);
+                    await loadCalculationHistory();
+                    clearResults(); // Clear current results if any
+                } else {
+                    alert('Error deleting history: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error clearing history:', error);
+                alert('Error clearing history: ' + error.message);
+            }
+        }
+
+        async function deleteCalculation(calculationId, event) {
+            if (event) {
+                event.stopPropagation(); // Prevent triggering the loadCalculation click
+            }
+
+            if (!confirm('Are you sure you want to delete this calculation? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/calculations/${calculationId}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    await loadCalculationHistory();
+                    // If the deleted calculation is currently displayed, clear it
+                    if (currentCalculationId === calculationId) {
+                        clearResults();
+                    }
+                } else {
+                    alert('Error deleting calculation: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error deleting calculation:', error);
+                alert('Error deleting calculation: ' + error.message);
             }
         }
 

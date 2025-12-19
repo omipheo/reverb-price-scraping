@@ -229,6 +229,39 @@ app.get("/api/calculations/:id", requireAuth, async (req, res) => {
   }
 });
 
+// API: Delete all calculations for user
+app.delete("/api/calculations", requireAuth, async (req, res) => {
+  try {
+    const result = await Calculation.deleteMany({ userId: req.session.userId });
+    res.json({ 
+      success: true, 
+      deletedCount: result.deletedCount 
+    });
+  } catch (error) {
+    console.error("Error in /api/calculations DELETE:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// API: Delete specific calculation
+app.delete("/api/calculations/:id", requireAuth, async (req, res) => {
+  try {
+    const result = await Calculation.deleteOne({
+      _id: req.params.id,
+      userId: req.session.userId,
+    });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Calculation not found" });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error in /api/calculations/:id DELETE:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // API: Search for pedals and get prices
 app.post("/api/search", requireAuth, async (req, res) => {
   try {
