@@ -21,7 +21,9 @@
     "puppeteer": "^24.12.1",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "string-similarity": "^4.0.4"
+    "string-similarity": "^4.0.4",
+    "xlsx": "^0.18.5",
+    "multer": "^1.4.5-lts.1"
   },
   "devDependencies": {
     "cross-env": "^7.0.3"
