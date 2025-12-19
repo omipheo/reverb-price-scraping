@@ -86,7 +86,71 @@
 </head>
 <body>
     <div class="container">
-        <h1><i class="bi bi-guitar"></i> Guitar Pedal Price Calculator</h1>
+        <!-- User Section -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="bi bi-guitar"></i> Guitar Pedal Price Calculator</h1>
+            <div id="userSection">
+                <span id="userInfo" class="me-3" style="display: none;"></span>
+                <button class="btn btn-outline-primary" onclick="showLoginModal()" id="loginBtn">Login</button>
+                <button class="btn btn-outline-danger" onclick="logout()" id="logoutBtn" style="display: none;">Logout</button>
+            </div>
+        </div>
+
+        <!-- Login/Register Modal -->
+        <div class="modal fade" id="authModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="authModalTitle">Login</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="authTabs" class="mb-3">
+                            <button class="btn btn-sm btn-outline-primary active" onclick="switchAuthTab('login')">Login</button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="switchAuthTab('register')">Register</button>
+                        </div>
+                        <div id="loginForm">
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" id="loginEmail" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <input type="password" class="form-control" id="loginPassword" required>
+                            </div>
+                            <button class="btn btn-primary w-100" onclick="login()">Login</button>
+                        </div>
+                        <div id="registerForm" style="display: none;">
+                            <div class="mb-3">
+                                <label class="form-label">Name</label>
+                                <input type="text" class="form-control" id="registerName" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Email</label>
+                                <input type="email" class="form-control" id="registerEmail" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <input type="password" class="form-control" id="registerPassword" required>
+                            </div>
+                            <button class="btn btn-primary w-100" onclick="register()">Register</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Calculation History Section -->
+        <div id="historySection" style="display: none;" class="mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Calculation History</h5>
+                </div>
+                <div class="card-body">
+                    <div id="historyList"></div>
+                </div>
+            </div>
+        </div>
         
         <!-- Input Section -->
         <div class="input-section">
@@ -164,9 +228,236 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let currentResults = null;
+        let currentUser = null;
+        let currentCalculationId = null;
+
+        // Check authentication on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth();
+        });
+
+        // Authentication functions
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/user');
+                if (response.ok) {
+                    const user = await response.json();
+                    currentUser = user;
+                    updateUIForLoggedIn(user);
+                    await loadCalculationHistory();
+                } else {
+                    updateUIForLoggedOut();
+                }
+            } catch (error) {
+                updateUIForLoggedOut();
+            }
+        }
+
+        function updateUIForLoggedIn(user) {
+            document.getElementById('userInfo').textContent = `Welcome, ${user.name}!`;
+            document.getElementById('userInfo').style.display = 'inline';
+            document.getElementById('loginBtn').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'inline';
+            document.getElementById('historySection').style.display = 'block';
+        }
+
+        function updateUIForLoggedOut() {
+            document.getElementById('userInfo').style.display = 'none';
+            document.getElementById('loginBtn').style.display = 'inline';
+            document.getElementById('logoutBtn').style.display = 'none';
+            document.getElementById('historySection').style.display = 'none';
+            currentUser = null;
+        }
+
+        function showLoginModal() {
+            const modal = new bootstrap.Modal(document.getElementById('authModal'));
+            switchAuthTab('login');
+            modal.show();
+        }
+
+        function switchAuthTab(tab) {
+            if (tab === 'login') {
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('registerForm').style.display = 'none';
+                document.getElementById('authModalTitle').textContent = 'Login';
+                document.querySelectorAll('#authTabs button').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('#authTabs button')[0].classList.add('active');
+            } else {
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('registerForm').style.display = 'block';
+                document.getElementById('authModalTitle').textContent = 'Register';
+                document.querySelectorAll('#authTabs button').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('#authTabs button')[1].classList.add('active');
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    currentUser = data.user;
+                    updateUIForLoggedIn(data.user);
+                    bootstrap.Modal.getInstance(document.getElementById('authModal')).hide();
+                    await loadCalculationHistory();
+                } else {
+                    alert('Login failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function register() {
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    currentUser = data.user;
+                    updateUIForLoggedIn(data.user);
+                    bootstrap.Modal.getInstance(document.getElementById('authModal')).hide();
+                    alert('Registration successful!');
+                } else {
+                    alert('Registration failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                currentUser = null;
+                updateUIForLoggedOut();
+                clearResults();
+            } catch (error) {
+                alert('Error logging out: ' + error.message);
+            }
+        }
+
+        async function loadCalculationHistory() {
+            if (!currentUser) return;
+
+            try {
+                const response = await fetch('/api/calculations');
+                const data = await response.json();
+                
+                const historyList = document.getElementById('historyList');
+                if (data.calculations && data.calculations.length > 0) {
+                    historyList.innerHTML = `
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Title</th>
+                                        <th>Type</th>
+                                        <th>Total Price</th>
+                                        <th>Total Offer</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.calculations.map(calc => `
+                                        <tr>
+                                            <td>${new Date(calc.createdAt).toLocaleString()}</td>
+                                            <td>${calc.title}</td>
+                                            <td>${calc.inputType}</td>
+                                            <td>$${calc.totalPrice.toFixed(2)}</td>
+                                            <td>$${calc.totalOffer.toFixed(2)}</td>
+                                            <td>
+                                                <button class="btn btn-sm btn-primary" onclick="loadCalculation('${calc._id}')">View</button>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
+                } else {
+                    historyList.innerHTML = '<p class="text-muted">No calculation history yet.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+
+        async function loadCalculation(calculationId) {
+            try {
+                const response = await fetch(`/api/calculations/${calculationId}`);
+                const data = await response.json();
+                
+                if (data.calculation) {
+                    let results = data.calculation.results;
+                    
+                    // Handle old format (array) - convert to new format (object)
+                    if (Array.isArray(results)) {
+                        results = {
+                            "All Pedals": {
+                                pedals: results.map(r => ({
+                                    pedal: r.pedalName || r.pedal || "",
+                                    condition: r.condition || "Unknown",
+                                    matchedProduct: r.matchedProduct || null,
+                                    brand: r.brand || null,
+                                    price: r.price || null,
+                                    offer: r.offer || 0,
+                                    hasPriceGuide: r.hasPriceGuide || false
+                                })),
+                                totalPrice: data.calculation.totalPrice || 0,
+                                totalOffer: data.calculation.totalOffer || 0
+                            }
+                        };
+                    }
+                    
+                    // Ensure results is an object with the correct structure
+                    if (typeof results !== 'object' || results === null) {
+                        throw new Error('Invalid calculation format');
+                    }
+                    
+                    // Validate structure - each key should have pedals array
+                    for (const [personName, personData] of Object.entries(results)) {
+                        if (!personData || !Array.isArray(personData.pedals)) {
+                            throw new Error(`Invalid format for ${personName}`);
+                        }
+                    }
+                    
+                    currentResults = results;
+                    currentCalculationId = calculationId;
+                    displayResults(results, Object.keys(results).length > 1);
+                    document.getElementById('resultsSection').style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error loading calculation:', error);
+                alert('Error loading calculation: ' + error.message);
+            }
+        }
 
         // Process text input
         async function processTextInput() {
+            if (!currentUser) {
+                alert('Please login first');
+                showLoginModal();
+                return;
+            }
+
             const text = document.getElementById('pedalList').value.trim();
             if (!text) {
                 alert('Please enter at least one pedal');
@@ -186,8 +477,48 @@
             await searchPedals(pedals);
         }
 
+        // Search pedals via API
+        async function searchPedals(pedals) {
+            showLoading();
+
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ pedals })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    hideLoading();
+                    return;
+                }
+
+                // Results are already in the correct format from backend
+                currentResults = data.results;
+                currentCalculationId = data.calculationId;
+                displayResults(data.results, Object.keys(data.results).length > 1);
+                hideLoading();
+                await loadCalculationHistory(); // Refresh history
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error searching pedals: ' + error.message);
+                hideLoading();
+            }
+        }
+
         // Process file input
         async function processFileInput() {
+            if (!currentUser) {
+                alert('Please login first');
+                showLoginModal();
+                return;
+            }
+
             const fileInput = document.getElementById('fileInput');
             const file = fileInput.files[0];
             
@@ -216,8 +547,10 @@
                 }
 
                 currentResults = data.results;
+                currentCalculationId = data.calculationId;
                 displayResults(data.results, true);
                 hideLoading();
+                await loadCalculationHistory(); // Refresh history
             } catch (error) {
                 console.error('Error:', error);
                 alert('Error processing file: ' + error.message);
@@ -246,26 +579,12 @@
                     return;
                 }
 
-                // Format results for display
-                const formattedResults = {
-                    'All Pedals': {
-                        pedals: data.results.map(r => ({
-                            pedal: r.pedalName,
-                            condition: r.condition,
-                            matchedProduct: r.matchedProduct,
-                            brand: r.brand,
-                            price: r.price,
-                            offer: r.offer,
-                            hasPriceGuide: r.hasPriceGuide
-                        })),
-                        totalPrice: data.results.reduce((sum, r) => sum + (r.price || 0), 0),
-                        totalOffer: data.results.reduce((sum, r) => sum + (r.offer || 0), 0)
-                    }
-                };
-
-                currentResults = formattedResults;
-                displayResults(formattedResults, false);
+                // Results are already in the correct format from backend
+                currentResults = data.results;
+                currentCalculationId = data.calculationId;
+                displayResults(data.results, Object.keys(data.results).length > 1);
                 hideLoading();
+                await loadCalculationHistory(); // Refresh history
             } catch (error) {
                 console.error('Error:', error);
                 alert('Error searching pedals: ' + error.message);

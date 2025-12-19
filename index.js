@@ -2,7 +2,10 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const path = require("path");
+const session = require("express-session");
 const Product = require("./model/product.mdl");
+const User = require("./model/user.mdl");
+const Calculation = require("./model/calculation.mdl");
 const XLSX = require("xlsx");
 const fs = require("fs");
 const multer = require("multer");
@@ -15,6 +18,27 @@ const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/pedal_pric
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
+
+// Session configuration
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "your-secret-key-change-this",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // Set to true if using HTTPS
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    },
+  })
+);
+
+// Authentication middleware
+const requireAuth = (req, res, next) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  next();
+};
 
 // Configure multer for file uploads
 const upload = multer({ storage: multer.memoryStorage() });
@@ -71,8 +95,142 @@ async function findMatchingProduct(pedalName, condition = null) {
   return product;
 }
 
+// API: Register new user
+app.post("/api/register", async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: "Email, password, and name are required" });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: "User already exists" });
+    }
+
+    // Create new user
+    const user = new User({ email, password, name });
+    await user.save();
+
+    // Set session
+    req.session.userId = user._id;
+    req.session.userEmail = user.email;
+    req.session.userName = user.name;
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+      },
+    });
+  } catch (error) {
+    console.error("Error in /api/register:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// API: Login
+app.post("/api/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required" });
+    }
+
+    // Find user
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // Check password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    // Set session
+    req.session.userId = user._id;
+    req.session.userEmail = user.email;
+    req.session.userName = user.name;
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        email: user.email,
+        name: user.name,
+      },
+    });
+  } catch (error) {
+    console.error("Error in /api/login:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// API: Logout
+app.post("/api/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ error: "Error logging out" });
+    }
+    res.json({ success: true });
+  });
+});
+
+// API: Get current user
+app.get("/api/user", (req, res) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
+  res.json({
+    id: req.session.userId,
+    email: req.session.userEmail,
+    name: req.session.userName,
+  });
+});
+
+// API: Get calculation history
+app.get("/api/calculations", requireAuth, async (req, res) => {
+  try {
+    const calculations = await Calculation.find({ userId: req.session.userId })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .select("title inputType totalPrice totalOffer createdAt _id");
+
+    res.json({ calculations });
+  } catch (error) {
+    console.error("Error in /api/calculations:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// API: Get specific calculation
+app.get("/api/calculations/:id", requireAuth, async (req, res) => {
+  try {
+    const calculation = await Calculation.findOne({
+      _id: req.params.id,
+      userId: req.session.userId,
+    });
+
+    if (!calculation) {
+      return res.status(404).json({ error: "Calculation not found" });
+    }
+
+    res.json({ calculation });
+  } catch (error) {
+    console.error("Error in /api/calculations/:id:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // API: Search for pedals and get prices
-app.post("/api/search", async (req, res) => {
+app.post("/api/search", requireAuth, async (req, res) => {
   try {
     const { pedals } = req.body;
 
@@ -125,7 +283,45 @@ app.post("/api/search", async (req, res) => {
       return a.price - b.price;
     });
 
-    res.json({ results });
+    // Calculate totals
+    const totalPrice = results.reduce((sum, r) => sum + (r.price || 0), 0);
+    const totalOffer = results.reduce((sum, r) => sum + (r.offer || 0), 0);
+
+    // Format results for display (convert array to object format)
+    const formattedResults = {
+      "All Pedals": {
+        pedals: results.map(r => ({
+          pedal: r.pedalName,
+          condition: r.condition,
+          matchedProduct: r.matchedProduct,
+          brand: r.brand,
+          price: r.price,
+          offer: r.offer,
+          hasPriceGuide: r.hasPriceGuide,
+        })),
+        totalPrice,
+        totalOffer,
+      }
+    };
+
+    // Save calculation to database (save in the format that displayResults expects)
+    const calculation = new Calculation({
+      userId: req.session.userId,
+      title: req.body.title || `Calculation ${new Date().toLocaleString()}`,
+      inputType: "text",
+      inputData: { pedals },
+      results: formattedResults, // Save in object format
+      totalPrice,
+      totalOffer,
+    });
+    await calculation.save();
+
+    res.json({ 
+      results: formattedResults, // Return in object format
+      calculationId: calculation._id,
+      totalPrice,
+      totalOffer,
+    });
   } catch (error) {
     console.error("Error in /api/search:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -133,7 +329,7 @@ app.post("/api/search", async (req, res) => {
 });
 
 // API: Process spreadsheet upload
-app.post("/api/upload", upload.single("file"), async (req, res) => {
+app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
@@ -233,7 +429,34 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
       };
     }
 
-    res.json({ results: allResults });
+    // Calculate overall totals
+    const overallTotalPrice = Object.values(allResults).reduce(
+      (sum, p) => sum + (p.totalPrice || 0),
+      0
+    );
+    const overallTotalOffer = Object.values(allResults).reduce(
+      (sum, p) => sum + (p.totalOffer || 0),
+      0
+    );
+
+    // Save calculation to database
+    const calculation = new Calculation({
+      userId: req.session.userId,
+      title: req.body.title || `File Upload ${new Date().toLocaleString()}`,
+      inputType: "file",
+      inputData: { filename: req.file.originalname, processedData },
+      results: allResults,
+      totalPrice: overallTotalPrice,
+      totalOffer: overallTotalOffer,
+    });
+    await calculation.save();
+
+    res.json({ 
+      results: allResults,
+      calculationId: calculation._id,
+      totalPrice: overallTotalPrice,
+      totalOffer: overallTotalOffer,
+    });
   } catch (error) {
     console.error("Error in /api/upload:", error);
     res.status(500).json({ error: "Internal server error" });
@@ -241,7 +464,7 @@ app.post("/api/upload", upload.single("file"), async (req, res) => {
 });
 
 // API: Generate and download spreadsheet
-app.post("/api/download", async (req, res) => {
+app.post("/api/download", requireAuth, async (req, res) => {
   try {
     const { data } = req.body; // Format: { "Person Name": { pedals: [...], totalPrice, totalOffer } }
 
