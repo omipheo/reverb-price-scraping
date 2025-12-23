@@ -514,9 +514,19 @@
                     }
                     
                     // Validate structure - each key should have pedals array
+                    // But be more lenient - allow empty pedals arrays
                     for (const [personName, personData] of Object.entries(results)) {
-                        if (!personData || !Array.isArray(personData.pedals)) {
-                            throw new Error(`Invalid format for ${personName}`);
+                        if (!personData || typeof personData !== 'object') {
+                            throw new Error(`Invalid format for ${personName}: missing person data`);
+                        }
+                        // Ensure pedals exists and is an array (can be empty)
+                        if (!Array.isArray(personData.pedals)) {
+                            // Try to fix if pedals is missing but other data exists
+                            if (personData.pedals === undefined || personData.pedals === null) {
+                                personData.pedals = [];
+                            } else {
+                                throw new Error(`Invalid format for ${personName}: pedals must be an array`);
+                            }
                         }
                     }
                     

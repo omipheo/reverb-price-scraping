@@ -409,25 +409,56 @@ app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => 
     }
 
     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      return res.status(400).json({ error: "Spreadsheet is empty or invalid" });
+    }
+    
     const sheetName = workbook.SheetNames[0];
     const worksheet = workbook.Sheets[sheetName];
+    
+    if (!worksheet) {
+      return res.status(400).json({ error: "Spreadsheet sheet is invalid" });
+    }
+    
     const data = XLSX.utils.sheet_to_json(worksheet);
 
-    // Expected format: Name, Pedal, Condition (or variations)
+    if (!data || data.length === 0) {
+      return res.status(400).json({ error: "Spreadsheet contains no data rows" });
+    }
+
+    // Expected format: Name/Person, Pedal, Condition (or variations)
+    // Also handle files downloaded from this app which use "Person" column
     const processedData = [];
 
     for (const row of data) {
-      const name = row.Name || row.name || row["Person Name"] || "";
+      // Try multiple column name variations for person name
+      const name = row.Name || row.name || row["Person Name"] || row.Person || row.person || "";
+      // Try multiple column name variations for pedal
       const pedal = row.Pedal || row.pedal || row["Pedal Name"] || "";
+      // Try multiple column name variations for condition
       const condition =
         row.Condition ||
         row.condition ||
         row["Pedal Condition"] ||
         "Unknown";
 
+      // Skip rows that are totals or special rows
+      if (pedal && (pedal.toString().toUpperCase() === "TOTAL" || pedal.toString().toUpperCase() === "OFFER")) {
+        continue;
+      }
+
       if (name && pedal) {
         processedData.push({ name, pedal, condition });
       }
+    }
+
+    if (processedData.length === 0) {
+      // Provide helpful error message with available column names
+      const availableColumns = data.length > 0 ? Object.keys(data[0]).join(", ") : "none";
+      return res.status(400).json({ 
+        error: `No valid data found in spreadsheet. Found columns: ${availableColumns}. Please ensure columns include 'Name'/'Person'/'Person Name' and 'Pedal'/'Pedal Name'` 
+      });
     }
 
     // Group by person
@@ -545,16 +576,36 @@ app.post("/api/download", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Invalid data format" });
     }
 
+    // Check if data is empty
+    const dataEntries = Object.entries(data);
+    if (dataEntries.length === 0) {
+      return res.status(400).json({ error: "No data to download" });
+    }
+
+    // Check if any person has pedals
+    const hasAnyPedals = dataEntries.some(([_, personData]) => {
+      return personData && Array.isArray(personData.pedals) && personData.pedals.length > 0;
+    });
+
+    if (!hasAnyPedals) {
+      return res.status(400).json({ error: "No pedals found in data" });
+    }
+
     // Create workbook
     const workbook = XLSX.utils.book_new();
 
-    for (const [personName, personData] of Object.entries(data)) {
+    for (const [personName, personData] of dataEntries) {
+      // Skip if personData is invalid or has no pedals
+      if (!personData || !Array.isArray(personData.pedals) || personData.pedals.length === 0) {
+        continue;
+      }
+
       const rows = [
         ["Person", "Pedal", "Condition", "Brand", "Price", "Offer"],
       ];
 
       // Add pedal rows
-      for (const pedal of personData.pedals || []) {
+      for (const pedal of personData.pedals) {
         rows.push([
           personName,
           pedal.matchedProduct || pedal.pedal || "",
@@ -592,7 +643,7 @@ app.post("/api/download", requireAuth, async (req, res) => {
       const worksheet = XLSX.utils.aoa_to_sheet(rows);
 
       // Add worksheet to workbook (one sheet per person, or combine all)
-      if (Object.keys(data).length === 1) {
+      if (dataEntries.length === 1) {
         XLSX.utils.book_append_sheet(workbook, worksheet, "Results");
       } else {
         // Multiple people - create separate sheets or combine
@@ -602,13 +653,18 @@ app.post("/api/download", requireAuth, async (req, res) => {
     }
 
     // If multiple people, also create a combined sheet
-    if (Object.keys(data).length > 1) {
+    if (dataEntries.length > 1) {
       const combinedRows = [
         ["Person", "Pedal", "Condition", "Brand", "Price", "Offer"],
       ];
 
-      for (const [personName, personData] of Object.entries(data)) {
-        for (const pedal of personData.pedals || []) {
+      for (const [personName, personData] of dataEntries) {
+        // Skip if personData is invalid or has no pedals
+        if (!personData || !Array.isArray(personData.pedals) || personData.pedals.length === 0) {
+          continue;
+        }
+
+        for (const pedal of personData.pedals) {
           combinedRows.push([
             personName,
             pedal.matchedProduct || pedal.pedal || "",
@@ -637,8 +693,16 @@ app.post("/api/download", requireAuth, async (req, res) => {
         combinedRows.push([]);
       }
 
-      const combinedWorksheet = XLSX.utils.aoa_to_sheet(combinedRows);
-      XLSX.utils.book_append_sheet(workbook, combinedWorksheet, "All Results");
+      // Only create combined sheet if there are rows (more than just header)
+      if (combinedRows.length > 1) {
+        const combinedWorksheet = XLSX.utils.aoa_to_sheet(combinedRows);
+        XLSX.utils.book_append_sheet(workbook, combinedWorksheet, "All Results");
+      }
+    }
+
+    // Check if workbook has any sheets before writing
+    if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+      return res.status(400).json({ error: "Cannot create spreadsheet: no valid data found" });
     }
 
     // Generate buffer
