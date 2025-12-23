@@ -576,6 +576,9 @@ app.post("/api/download", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Invalid data format" });
     }
 
+    // Get logged-in user's name
+    const userName = req.session.userName || "User";
+
     // Check if data is empty
     const dataEntries = Object.entries(data);
     if (dataEntries.length === 0) {
@@ -604,10 +607,10 @@ app.post("/api/download", requireAuth, async (req, res) => {
         ["Person", "Pedal", "Condition", "Brand", "Price", "Offer"],
       ];
 
-      // Add pedal rows
+      // Add pedal rows - use logged-in user's name instead of personName
       for (const pedal of personData.pedals) {
         rows.push([
-          personName,
+          userName,
           pedal.matchedProduct || pedal.pedal || "",
           pedal.condition || "",
           pedal.brand || "",
@@ -618,7 +621,7 @@ app.post("/api/download", requireAuth, async (req, res) => {
 
       // Add total row
       rows.push([
-        personName,
+        userName,
         "TOTAL",
         "",
         "",
@@ -628,7 +631,7 @@ app.post("/api/download", requireAuth, async (req, res) => {
 
       // Add offer row
       rows.push([
-        personName,
+        userName,
         "OFFER",
         "",
         "",
@@ -646,8 +649,8 @@ app.post("/api/download", requireAuth, async (req, res) => {
       if (dataEntries.length === 1) {
         XLSX.utils.book_append_sheet(workbook, worksheet, "Results");
       } else {
-        // Multiple people - create separate sheets or combine
-        const sheetName = personName.substring(0, 31); // Excel sheet name limit
+        // Multiple people - use user's name for sheet name
+        const sheetName = userName.substring(0, 31); // Excel sheet name limit
         XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
       }
     }
@@ -666,7 +669,7 @@ app.post("/api/download", requireAuth, async (req, res) => {
 
         for (const pedal of personData.pedals) {
           combinedRows.push([
-            personName,
+            userName,
             pedal.matchedProduct || pedal.pedal || "",
             pedal.condition || "",
             pedal.brand || "",
@@ -675,7 +678,7 @@ app.post("/api/download", requireAuth, async (req, res) => {
           ]);
         }
         combinedRows.push([
-          personName,
+          userName,
           "TOTAL",
           "",
           "",
@@ -683,7 +686,7 @@ app.post("/api/download", requireAuth, async (req, res) => {
           "",
         ]);
         combinedRows.push([
-          personName,
+          userName,
           "OFFER",
           "",
           "",
@@ -722,6 +725,11 @@ app.post("/api/download", requireAuth, async (req, res) => {
     console.error("Error in /api/download:", error);
     res.status(500).json({ error: "Internal server error" });
   }
+});
+
+// Handle favicon requests (prevent 404 errors)
+app.get("/favicon.ico", (req, res) => {
+  res.status(204).end();
 });
 
 // Serve frontend
