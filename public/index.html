@@ -746,6 +746,16 @@
             }
 
             try {
+                // Suppress blob URL security warnings for HTTP
+                const originalWarn = console.warn;
+                console.warn = function(...args) {
+                    const message = args.join(' ');
+                    if (message.includes('insecure connection') || message.includes('blob:')) {
+                        return; // Suppress blob URL warnings
+                    }
+                    originalWarn.apply(console, args);
+                };
+
                 const response = await fetch('/api/download', {
                     method: 'POST',
                     headers: {
@@ -765,8 +775,13 @@
                 a.download = `pedal_prices_${Date.now()}.xlsx`;
                 document.body.appendChild(a);
                 a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
+                
+                // Restore console.warn after a short delay
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    console.warn = originalWarn;
+                }, 100);
             } catch (error) {
                 console.error('Error:', error);
                 alert('Error downloading file: ' + error.message);
