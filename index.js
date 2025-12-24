@@ -82,6 +82,75 @@ function calculateOffer(price) {
   return Math.round(price * 0.75);
 }
 
+// Utility: Normalize condition string for matching
+function normalizeCondition(condition) {
+  if (!condition) return null;
+  // Convert to title case (first letter uppercase, rest lowercase)
+  return condition
+    .toLowerCase()
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+// Utility: Calculate price from product transactions based on condition
+function calculatePriceFromTransactions(product, condition = null) {
+  if (!product || !product.priceGuide || product.priceGuide.length === 0) {
+    return null;
+  }
+
+  // Sort transactions by createdAt (most recent first)
+  const sortedTransactions = [...product.priceGuide].sort((a, b) => {
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+  let relevantTransactions = [];
+
+  if (condition && condition !== "Unknown") {
+    // Normalize condition for matching
+    const normalizedCondition = normalizeCondition(condition);
+    
+    // With condition: Get last 5 transactions in that specific condition
+    // Match case-insensitively
+    relevantTransactions = sortedTransactions
+      .filter(t => {
+        const txCondition = normalizeCondition(t.condition);
+        return txCondition === normalizedCondition;
+      })
+      .slice(0, 5);
+  } else {
+    // Without condition: Get last 10 non-mint transactions
+    // We need to look through transactions until we find 10 non-mint ones
+    for (const tx of sortedTransactions) {
+      const txCondition = normalizeCondition(tx.condition);
+      if (txCondition !== "Mint") {
+        relevantTransactions.push(tx);
+        if (relevantTransactions.length >= 10) {
+          break;
+        }
+      }
+    }
+  }
+
+  if (relevantTransactions.length === 0) {
+    return null;
+  }
+
+  // Calculate average
+  const amounts = relevantTransactions
+    .map(t => t.amount)
+    .filter(Number.isFinite);
+
+  if (amounts.length === 0) {
+    return null;
+  }
+
+  const sum = amounts.reduce((a, b) => a + b, 0);
+  const average = sum / amounts.length;
+
+  return Number(average.toFixed(2));
+}
+
 // Utility: Find best matching product in MongoDB
 async function findMatchingProduct(pedalName, condition = null) {
   const normalized = normalizePedalName(pedalName);
@@ -320,20 +389,34 @@ app.post("/api/search", requireAuth, async (req, res) => {
 
       const product = await findMatchingProduct(pedalName, condition);
 
-      if (product && product.priceGuideSummary?.all?.median) {
-        const medianPrice = product.priceGuideSummary.all.median;
-        const offer = calculateOffer(medianPrice);
+      if (product) {
+        const price = calculatePriceFromTransactions(product, condition);
 
-        results.push({
-          pedalName,
-          condition: condition || "Unknown",
-          matchedProduct: product.title,
-          brand: product.brand,
-          price: medianPrice,
-          offer,
-          hasPriceGuide: true,
-          productId: product.canonicalProductId,
-        });
+        if (price !== null) {
+          const offer = calculateOffer(price);
+
+          results.push({
+            pedalName,
+            condition: condition || "Unknown",
+            matchedProduct: product.title,
+            brand: product.brand,
+            price,
+            offer,
+            hasPriceGuide: true,
+            productId: product.canonicalProductId,
+          });
+        } else {
+          results.push({
+            pedalName,
+            condition: condition || "Unknown",
+            matchedProduct: product.title,
+            brand: product.brand,
+            price: null,
+            offer: 0,
+            hasPriceGuide: false,
+            productId: product.canonicalProductId,
+          });
+        }
       } else {
         results.push({
           pedalName,
@@ -482,19 +565,32 @@ app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => 
       for (const { pedal, condition } of pedals) {
         const product = await findMatchingProduct(pedal, condition);
 
-        if (product && product.priceGuideSummary?.all?.median) {
-          const medianPrice = product.priceGuideSummary.all.median;
-          const offer = calculateOffer(medianPrice);
+        if (product) {
+          const price = calculatePriceFromTransactions(product, condition);
 
-          pedalResults.push({
-            pedal,
-            condition,
-            matchedProduct: product.title,
-            brand: product.brand,
-            price: medianPrice,
-            offer,
-            hasPriceGuide: true,
-          });
+          if (price !== null) {
+            const offer = calculateOffer(price);
+
+            pedalResults.push({
+              pedal,
+              condition,
+              matchedProduct: product.title,
+              brand: product.brand,
+              price,
+              offer,
+              hasPriceGuide: true,
+            });
+          } else {
+            pedalResults.push({
+              pedal,
+              condition,
+              matchedProduct: product.title,
+              brand: product.brand,
+              price: null,
+              offer: 0,
+              hasPriceGuide: false,
+            });
+          }
         } else {
           pedalResults.push({
             pedal,
