@@ -700,7 +700,7 @@ app.post("/api/download", requireAuth, async (req, res) => {
       }
 
       const rows = [
-        ["Person", "Pedal", "Condition", "Brand", "Price", "Offer"],
+        ["Person", "Pedal", "Condition", "Brand", "FMV", "Offer"],
       ];
 
       // Add pedal rows - use logged-in user's name instead of personName
