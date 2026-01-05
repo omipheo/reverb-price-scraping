@@ -93,6 +93,14 @@ function normalizeCondition(condition) {
     .join(' ');
 }
 
+// Utility: Calculate median (middle value) from an array of numbers
+function median(nums) {
+  if (!nums || nums.length === 0) return 0;
+  const s = [...nums].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
 // Utility: Calculate price from product transactions based on condition
 function calculatePriceFromTransactions(product, condition = null) {
   if (!product || !product.priceGuide || product.priceGuide.length === 0) {
@@ -110,33 +118,56 @@ function calculatePriceFromTransactions(product, condition = null) {
     // Normalize condition for matching
     const normalizedCondition = normalizeCondition(condition);
     
-    // With condition: Get last 5 transactions in that specific condition
+    // With condition: Get last 6 transactions in that specific condition
     // Match case-insensitively
     relevantTransactions = sortedTransactions
       .filter(t => {
         const txCondition = normalizeCondition(t.condition);
         return txCondition === normalizedCondition;
       })
-      .slice(0, 5);
+      .slice(0, 6);
+    console.log("relevantTransactions", relevantTransactions);
+    // Take average of middle 2 (remove first 2 and last 2, keep middle 2)
+    if (relevantTransactions.length >= 6) {
+      relevantTransactions = relevantTransactions.slice(2, 4); // Middle 2 (indices 2 and 3)
+    } else if (relevantTransactions.length >= 4) {
+      // If we have 4-5 transactions, take middle 2
+      const start = Math.floor((relevantTransactions.length - 2) / 2);
+      relevantTransactions = relevantTransactions.slice(start, start + 2);
+    }
+    // If less than 4, use all available
   } else {
-    // Without condition: Get last 10 non-mint transactions
-    // We need to look through transactions until we find 10 non-mint ones
+    // Without condition: Get last 14 non-mint transactions
+    // We need to look through transactions until we find 14 non-mint ones
     for (const tx of sortedTransactions) {
       const txCondition = normalizeCondition(tx.condition);
       if (txCondition !== "Mint") {
         relevantTransactions.push(tx);
-        if (relevantTransactions.length >= 10) {
+        if (relevantTransactions.length >= 14) {
           break;
         }
       }
     }
+    // Take average of middle 6 (remove first 4 and last 4, keep middle 6)
+    if (relevantTransactions.length >= 14) {
+      relevantTransactions = relevantTransactions.slice(4, 10); // Middle 6 (indices 4-9)
+    } else if (relevantTransactions.length >= 10) {
+      // If we have 10-13 transactions, take middle 6
+      const start = Math.floor((relevantTransactions.length - 6) / 2);
+      relevantTransactions = relevantTransactions.slice(start, start + 6);
+    } else if (relevantTransactions.length >= 6) {
+      // If we have 6-9 transactions, take middle 2-4
+      const start = Math.floor((relevantTransactions.length - 2) / 2);
+      relevantTransactions = relevantTransactions.slice(start, start + 2);
+    }
+    // If less than 6, use all available
   }
 
   if (relevantTransactions.length === 0) {
     return null;
   }
 
-  // Calculate average
+  // Calculate average of the selected transactions
   const amounts = relevantTransactions
     .map(t => t.amount)
     .filter(Number.isFinite);
@@ -144,11 +175,21 @@ function calculatePriceFromTransactions(product, condition = null) {
   if (amounts.length === 0) {
     return null;
   }
-
+  console.log("amounts", amounts);
   const sum = amounts.reduce((a, b) => a + b, 0);
   const average = sum / amounts.length;
+  
+  // Apply discount based on price
+  // For pedals over $200: lower by 5%
+  // For pedals under $200: lower by 10%
+  let adjustedPrice = average;
+  if (average >= 200) {
+    adjustedPrice = average * 0.95; // 5% discount
+  } else {
+    adjustedPrice = average * 0.90; // 10% discount
+  }
 
-  return Number(average.toFixed(2));
+  return Number(adjustedPrice.toFixed(2));
 }
 
 // Utility: Find best matching product in MongoDB
