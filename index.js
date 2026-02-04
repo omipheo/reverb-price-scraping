@@ -7,6 +7,8 @@ const MongoStore = require("connect-mongo");
 const Product = require("./model/product.mdl");
 const User = require("./model/user.mdl");
 const Calculation = require("./model/calculation.mdl");
+const UserPedal = require("./model/user-pedal.mdl");
+const PriceAudit = require("./model/price-audit.mdl");
 const XLSX = require("xlsx");
 const fs = require("fs");
 const multer = require("multer");
@@ -412,6 +414,226 @@ app.delete("/api/calculations/:id", requireAuth, async (req, res) => {
   }
 });
 
+// API: Update match feedback (No Match? / Partial match?) for a pedal in a calculation
+app.patch("/api/calculations/:id/pedal-feedback", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { productId, noMatch, partialMatch } = req.body;
+    const calculation = await Calculation.findOne({ _id: id, userId: req.session.userId });
+    if (!calculation) {
+      return res.status(404).json({ error: "Calculation not found" });
+    }
+    const results = calculation.results;
+    if (!results || typeof results !== "object") {
+      return res.status(400).json({ error: "No results in calculation" });
+    }
+    let updated = false;
+    for (const personKey of Object.keys(results)) {
+      const personData = results[personKey];
+      if (!personData || !Array.isArray(personData.pedals)) continue;
+      for (const p of personData.pedals) {
+        if (p.productId === productId) {
+          p.noMatch = !!noMatch;
+          p.partialMatch = !!partialMatch;
+          updated = true;
+          break;
+        }
+      }
+      if (updated) break;
+    }
+    if (!updated) {
+      return res.status(404).json({ error: "Pedal not found in calculation" });
+    }
+    calculation.results = results;
+    await calculation.save();
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error in PATCH /api/calculations/:id/pedal-feedback:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// Helper: add 1 year to a date
+function addOneYear(date) {
+  const d = new Date(date);
+  d.setFullYear(d.getFullYear() + 1);
+  return d;
+}
+
+// Helper: build Reverb Price Guide link (working format: query param)
+function buildReverbPgLink(product) {
+  if (!product || !product.slug) return null;
+  const query = product.slug.replace(/-/g, "+");
+  return `https://reverb.com/price-guide?query=${query}`;
+}
+
+// Helper: 2nd lowest price from price guide (historical/sold data). Client: "use the 2nd lowest historical price".
+function get2ndLowestFromPriceGuide(product) {
+  if (!product || !product.priceGuide || product.priceGuide.length < 2) return null;
+  const amounts = product.priceGuide
+    .map((t) => t.amount)
+    .filter(Number.isFinite);
+  if (amounts.length < 2) return null;
+  const sorted = [...amounts].sort((a, b) => a - b);
+  return sorted[1];
+}
+
+// Helper: round to nearest X9; if exactly in middle (e.g. 115.5) round up
+function roundToEndIn9(value) {
+  if (value == null || !Number.isFinite(value) || value < 0) return null;
+  const lower9 = Math.floor((value + 1) / 10) * 10 - 1;
+  const upper9 = lower9 + 10;
+  const mid = (lower9 + upper9) / 2;
+  return value >= mid ? upper9 : lower9;
+}
+
+// Calculate PTM Sell Price from product. Assume 6+ for sale; use transaction history high only (no Reverb suggested yet).
+function calculatePtmSellPrice(product) {
+  if (!product || !product.priceGuideSummary || !product.priceGuideSummary.all) return null;
+  const high = product.priceGuideSummary.all.high;
+  if (high == null || !Number.isFinite(high) || high <= 0) return null;
+  const quantityForSale = 6; // Assume 6+ until we have real data
+  const is6Plus = quantityForSale >= 6;
+  const is91Plus = high >= 91;
+  let pct;
+  if (is6Plus && is91Plus) pct = 0.10;
+  else if (is6Plus && !is91Plus) pct = 0.15;
+  else if (!is6Plus && is91Plus) pct = 0.20;
+  else pct = 0.25;
+  const withPct = high * (1 + pct);
+  return roundToEndIn9(withPct);
+}
+
+// API: Update PTM Buy Price for a product (by canonicalProductId)
+app.patch("/api/products/:productId/ptm-buy-price", requireAuth, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { ptmBuyPrice } = req.body;
+    if (productId === undefined || productId === "") {
+      return res.status(400).json({ error: "Product ID is required" });
+    }
+    const product = await Product.findOne({ canonicalProductId: productId });
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    const oldValue = product.ptmBuyPrice;
+    const newValue = ptmBuyPrice != null ? Number(ptmBuyPrice) : null;
+    const now = new Date();
+    const expiresAt = newValue != null ? addOneYear(now) : null;
+    product.ptmBuyPrice = newValue;
+    product.ptmBuyPriceExpiresAt = expiresAt;
+    await product.save();
+    await PriceAudit.create({
+      userId: req.session.userId,
+      productId: product.canonicalProductId,
+      field: "ptmBuyPrice",
+      oldValue,
+      newValue,
+    });
+    res.json({
+      success: true,
+      productId: product.canonicalProductId,
+      ptmBuyPrice: product.ptmBuyPrice,
+      ptmBuyPriceExpiresAt: product.ptmBuyPriceExpiresAt ? product.ptmBuyPriceExpiresAt.toISOString().slice(0, 10) : null,
+    });
+  } catch (error) {
+    console.error("Error in PATCH /api/products/:productId/ptm-buy-price:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// API: Update PTM Sell Price for a product (by canonicalProductId). Only set expiration when user overrides.
+app.patch("/api/products/:productId/ptm-sell-price", requireAuth, async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const { ptmSellPrice } = req.body;
+    if (productId === undefined || productId === "") {
+      return res.status(400).json({ error: "Product ID is required" });
+    }
+    const product = await Product.findOne({ canonicalProductId: productId });
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    const newValue = ptmSellPrice != null ? Number(ptmSellPrice) : null;
+    const now = new Date();
+    product.ptmSellPrice = newValue;
+    product.ptmSellPriceExpiresAt = newValue != null ? addOneYear(now) : null;
+    await product.save();
+    res.json({
+      success: true,
+      productId: product.canonicalProductId,
+      ptmSellPrice: product.ptmSellPrice,
+      ptmSellPriceExpiresAt: product.ptmSellPriceExpiresAt ? product.ptmSellPriceExpiresAt.toISOString().slice(0, 10) : null,
+    });
+  } catch (error) {
+    console.error("Error in PATCH /api/products/:productId/ptm-sell-price:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// API: Add a new pedal (user-added; not from Reverb). Optional PTM Buy Price.
+app.post("/api/pedals", requireAuth, async (req, res) => {
+  try {
+    const { title, ptmBuyPrice } = req.body;
+    if (!title || typeof title !== "string" || !title.trim()) {
+      return res.status(400).json({ error: "Pedal name (title) is required" });
+    }
+    const normalized = normalizePedalName(title.trim());
+    const now = new Date();
+    const expiresAt = ptmBuyPrice != null && Number(ptmBuyPrice) > 0 ? addOneYear(now) : null;
+    const price = ptmBuyPrice != null ? Number(ptmBuyPrice) : null;
+    const pedal = new UserPedal({
+      title: title.trim(),
+      normalizedTitle: normalized,
+      ptmBuyPrice: price,
+      ptmBuyPriceExpiresAt: expiresAt,
+      userId: req.session.userId,
+    });
+    await pedal.save();
+    res.status(201).json({
+      success: true,
+      pedal: {
+        id: pedal._id,
+        title: pedal.title,
+        ptmBuyPrice: pedal.ptmBuyPrice,
+        ptmBuyPriceExpiresAt: pedal.ptmBuyPriceExpiresAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error in POST /api/pedals:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// API: Update PTM Buy Price for a user-added pedal (by _id)
+app.patch("/api/pedals/:id/ptm-buy-price", requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { ptmBuyPrice } = req.body;
+    const pedal = await UserPedal.findOne({ _id: id, userId: req.session.userId });
+    if (!pedal) {
+      return res.status(404).json({ error: "Pedal not found" });
+    }
+    const now = new Date();
+    const expiresAt = ptmBuyPrice != null && Number(ptmBuyPrice) > 0 ? addOneYear(now) : null;
+    pedal.ptmBuyPrice = ptmBuyPrice != null ? Number(ptmBuyPrice) : null;
+    pedal.ptmBuyPriceExpiresAt = expiresAt;
+    await pedal.save();
+    res.json({
+      success: true,
+      pedal: {
+        id: pedal._id,
+        title: pedal.title,
+        ptmBuyPrice: pedal.ptmBuyPrice,
+        ptmBuyPriceExpiresAt: pedal.ptmBuyPriceExpiresAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error in PATCH /api/pedals/:id/ptm-buy-price:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // API: Search for pedals and get prices
 app.post("/api/search", requireAuth, async (req, res) => {
   try {
@@ -432,6 +654,16 @@ app.post("/api/search", requireAuth, async (req, res) => {
 
       if (product) {
         const price = calculatePriceFromTransactions(product, condition);
+        const reverbPgHistPrice = price;
+        const reverbPgLink = buildReverbPgLink(product);
+        const reverbMarketSoldPrice = get2ndLowestFromPriceGuide(product);
+        const reverbMarketSoldLink = buildReverbPgLink(product);
+        const ptmBuyPrice = product.ptmBuyPrice != null ? product.ptmBuyPrice : null;
+        const ptmBuyPriceExpiresAt = product.ptmBuyPriceExpiresAt || null;
+        const expStr = ptmBuyPriceExpiresAt ? (ptmBuyPriceExpiresAt.toISOString ? ptmBuyPriceExpiresAt.toISOString().slice(0, 10) : ptmBuyPriceExpiresAt) : null;
+        const ptmSellPrice = product.ptmSellPrice != null ? product.ptmSellPrice : calculatePtmSellPrice(product);
+        const ptmSellPriceExpiresAt = product.ptmSellPriceExpiresAt || null;
+        const sellExpStr = ptmSellPriceExpiresAt ? (ptmSellPriceExpiresAt.toISOString ? ptmSellPriceExpiresAt.toISOString().slice(0, 10) : ptmSellPriceExpiresAt) : null;
 
         if (price !== null) {
           const offer = calculateOffer(price);
@@ -445,6 +677,17 @@ app.post("/api/search", requireAuth, async (req, res) => {
             offer,
             hasPriceGuide: true,
             productId: product.canonicalProductId,
+            reverbPgHistPrice,
+            reverbPgLink,
+            reverbMarketSoldPrice,
+            reverbMarketSoldLink,
+            amtListedOnReverbMarket: null,
+            ptmBuyPrice,
+            ptmBuyPriceExpiresAt: expStr,
+            ptmSellPrice,
+            ptmSellPriceExpiresAt: sellExpStr,
+            noMatch: false,
+            partialMatch: false,
           });
         } else {
           results.push({
@@ -456,6 +699,17 @@ app.post("/api/search", requireAuth, async (req, res) => {
             offer: 0,
             hasPriceGuide: false,
             productId: product.canonicalProductId,
+            reverbPgHistPrice: null,
+            reverbPgLink,
+            reverbMarketSoldPrice,
+            reverbMarketSoldLink,
+            amtListedOnReverbMarket: null,
+            ptmBuyPrice,
+            ptmBuyPriceExpiresAt: expStr,
+            ptmSellPrice,
+            ptmSellPriceExpiresAt: sellExpStr,
+            noMatch: false,
+            partialMatch: false,
           });
         }
       } else {
@@ -468,6 +722,17 @@ app.post("/api/search", requireAuth, async (req, res) => {
           offer: 0,
           hasPriceGuide: false,
           productId: null,
+          reverbPgHistPrice: null,
+          reverbPgLink: null,
+          reverbMarketSoldPrice: null,
+          reverbMarketSoldLink: null,
+          amtListedOnReverbMarket: null,
+          ptmBuyPrice: null,
+          ptmBuyPriceExpiresAt: null,
+          ptmSellPrice: null,
+          ptmSellPriceExpiresAt: null,
+          noMatch: false,
+          partialMatch: false,
         });
       }
     }
@@ -480,9 +745,9 @@ app.post("/api/search", requireAuth, async (req, res) => {
       return a.price - b.price;
     });
 
-    // Calculate totals
-    const totalPrice = results.reduce((sum, r) => sum + (r.price || 0), 0);
-    const totalOffer = results.reduce((sum, r) => sum + (r.offer || 0), 0);
+    // FMV = sum of PTM Buy Prices only (client requirement)
+    const totalPrice = results.reduce((sum, r) => sum + (r.ptmBuyPrice != null ? r.ptmBuyPrice : 0), 0);
+    const totalOffer = calculateOffer(totalPrice);
 
     // Format results for display (convert array to object format)
     const formattedResults = {
@@ -495,6 +760,18 @@ app.post("/api/search", requireAuth, async (req, res) => {
           price: r.price,
           offer: r.offer,
           hasPriceGuide: r.hasPriceGuide,
+          reverbPgHistPrice: r.reverbPgHistPrice,
+          reverbPgLink: r.reverbPgLink,
+          reverbMarketSoldPrice: r.reverbMarketSoldPrice,
+          reverbMarketSoldLink: r.reverbMarketSoldLink,
+          amtListedOnReverbMarket: r.amtListedOnReverbMarket,
+          ptmBuyPrice: r.ptmBuyPrice,
+          ptmBuyPriceExpiresAt: r.ptmBuyPriceExpiresAt,
+          productId: r.productId,
+          ptmSellPrice: r.ptmSellPrice,
+          ptmSellPriceExpiresAt: r.ptmSellPriceExpiresAt,
+          noMatch: r.noMatch || false,
+          partialMatch: r.partialMatch || false,
         })),
         totalPrice,
         totalOffer,
@@ -608,6 +885,16 @@ app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => 
 
         if (product) {
           const price = calculatePriceFromTransactions(product, condition);
+          const reverbPgHistPrice = price;
+          const reverbPgLink = buildReverbPgLink(product);
+          const reverbMarketSoldPrice = get2ndLowestFromPriceGuide(product);
+          const reverbMarketSoldLink = buildReverbPgLink(product);
+          const ptmBuyPrice = product.ptmBuyPrice != null ? product.ptmBuyPrice : null;
+          const ptmBuyPriceExpiresAt = product.ptmBuyPriceExpiresAt || null;
+          const expStr = ptmBuyPriceExpiresAt ? (ptmBuyPriceExpiresAt.toISOString ? ptmBuyPriceExpiresAt.toISOString().slice(0, 10) : ptmBuyPriceExpiresAt) : null;
+          const ptmSellPrice = product.ptmSellPrice != null ? product.ptmSellPrice : calculatePtmSellPrice(product);
+          const ptmSellPriceExpiresAt = product.ptmSellPriceExpiresAt || null;
+          const sellExpStr = ptmSellPriceExpiresAt ? (ptmSellPriceExpiresAt.toISOString ? ptmSellPriceExpiresAt.toISOString().slice(0, 10) : ptmSellPriceExpiresAt) : null;
 
           if (price !== null) {
             const offer = calculateOffer(price);
@@ -620,6 +907,18 @@ app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => 
               price,
               offer,
               hasPriceGuide: true,
+              reverbPgHistPrice,
+              reverbPgLink,
+              reverbMarketSoldPrice,
+              reverbMarketSoldLink,
+              amtListedOnReverbMarket: null,
+              ptmBuyPrice,
+              ptmBuyPriceExpiresAt: expStr,
+              productId: product.canonicalProductId,
+              ptmSellPrice,
+              ptmSellPriceExpiresAt: sellExpStr,
+              noMatch: false,
+              partialMatch: false,
             });
           } else {
             pedalResults.push({
@@ -630,6 +929,18 @@ app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => 
               price: null,
               offer: 0,
               hasPriceGuide: false,
+              reverbPgHistPrice: null,
+              reverbPgLink,
+              reverbMarketSoldPrice,
+              reverbMarketSoldLink,
+              amtListedOnReverbMarket: null,
+              ptmBuyPrice,
+              ptmBuyPriceExpiresAt: expStr,
+              productId: product.canonicalProductId,
+              ptmSellPrice,
+              ptmSellPriceExpiresAt: sellExpStr,
+              noMatch: false,
+              partialMatch: false,
             });
           }
         } else {
@@ -641,6 +952,18 @@ app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => 
             price: null,
             offer: 0,
             hasPriceGuide: false,
+            reverbPgHistPrice: null,
+            reverbPgLink: null,
+            reverbMarketSoldPrice: null,
+            reverbMarketSoldLink: null,
+            amtListedOnReverbMarket: null,
+            ptmBuyPrice: null,
+            ptmBuyPriceExpiresAt: null,
+            productId: null,
+            ptmSellPrice: null,
+            ptmSellPriceExpiresAt: null,
+            noMatch: false,
+            partialMatch: false,
           });
         }
       }
@@ -653,15 +976,12 @@ app.post("/api/upload", requireAuth, upload.single("file"), async (req, res) => 
         return a.price - b.price;
       });
 
-      // Calculate totals
+      // FMV = sum of PTM Buy Prices only
       const totalPrice = pedalResults.reduce(
-        (sum, p) => sum + (p.price || 0),
+        (sum, p) => sum + (p.ptmBuyPrice != null ? p.ptmBuyPrice : 0),
         0
       );
-      const totalOffer = pedalResults.reduce(
-        (sum, p) => sum + (p.offer || 0),
-        0
-      );
+      const totalOffer = calculateOffer(totalPrice);
 
       allResults[personName] = {
         pedals: pedalResults,

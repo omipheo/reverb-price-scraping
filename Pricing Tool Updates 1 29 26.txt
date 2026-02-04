@@ -1,0 +1,92 @@
+Tool Column Names
+
+0. Pedal Name
+1. PTM Buy Price (editable) (formerly - Justin Price)
+2. Buy Price Expiration
+3. Reverb historical price (formerly - reverb price)
+4. Reverb historical price link
+5. Reverb Sold Price
+6. Reverb Sold Price link
+7. Quantity for sale on Reverb
+8. PTM Sell price (editable)
+9. Sell Price Expiration Date
+
+
+
+1.
+As of now the tool has Justin's price and the Reverb Price. We need to rename the column from "Justin Price" to "PTM Buy Price". 
+
+This column on the tool needs to be editable. That means when the price appears in the tool, Justin (or anyone else at Pedals To Metal) should be able to change the price and press a "save new price" button and have it update the price on the database (so the next time it's searched, it comes up with the new price). Whenever anyone changes the price it should update the date it was changed and the year starts over (the prices are only good for one year, so the date that it's good until is now one year from the date they change the price).
+
+Also, if the pedal does not exist in the database then the user should be able to enter the pedal and enter a price for it and that will save both the new pedal and the new price into the database and it will also calculate one year from that date for the expiration price date. The user should be able to add a new pedal even if he does not enter a price for it. (there should never be a situation where the pedal already exists and he just has a different spelling for it since the tool looks for matches. I just wanted to say this out loud.)
+
+2.
+The tool should then show the "Buy Price Expiration" column (one year from when the buy price was calculated or entered or updated)
+
+3. 
+We also need to rename the column "reverb Price" to now be called "Reverb historical price" 
+
+4. 
+And we need to provide a link to the page that has the pricing history
+
+5. 
+We need to make a new column called "Reverb sold price".
+
+To calculate the "reverb sold price" we need to look on reverb for all the pedals that have been sold and pick the 2nd to lowest price.
+
+In order to find all the pedals that have been sold you can type in any pedal (I'll type in ts9) and go to "all filters" and click on "show only" and check off "sold listings"
+
+https://reverb.com/marketplace?query=ts9&make=ibanez&product_type=effects-and-pedals&show_only_sold=true 
+
+That should apply to all pedals on the site. Do we still have all the scraped pedals on the database? We can then re-scrape them once a month. For now we can use the old data for testing. Does that data let you know if a pedal was a "sold listing"?
+
+Let me know about this.
+
+I know this is not a small thing so I want to make sure I'm saying it clearly and that it makes sense. We should review it together to make sure we understand each other. It wouldn't be good to touch base after alot of work was done only to realize it wasn't clear enough. This might require finding the correct data on reverb and doing a new scrape if we didn't scrape this data when we did the last scrape (if we did, then let's start with the old data before doing another scrape)
+
+6.
+We then need a column that has the link to the page that you got the sold price data from (if possible)
+
+1. PTM Buy Price (editable) (formerly - Justin Price)
+2. Buy Price Expiration
+3. Reverb historical price (formerly - reverb price)
+4. Reverb historical price link
+5. Reverb Sold Price
+6. Reverb Sold Price link
+7. Quantity for sale on Reverb
+8. PTM Sell price (editable)
+9. Sell Price Expiration Date
+
+7.
+The next thing we need is a column that shows how many of that pedal are available for sale on reverb right now in used pedals (not new). If you go to the ts9 example, you'll see 297 used ts9 pedals are listed for sale. If you go to "all filters" and click "used":
+
+https://reverb.com/marketplace?query=ts9&make=ibanez&product_type=effects-and-pedals&condition=used
+
+
+8. 
+We also need is a column that lists the Sell Price. 
+
+To calculate the sell price, look at the range of reverb's prices (see attached document) and take the highest price. 
+
+If there are 6 or more other used pedals available for sale AND if the highest price is 91 or higher AND you are taking the highest price from the transaction history. then add 10%. The number should always end in a 9. It should be the 9 that is closest to 10%. So if the highest price is 100 and you add 10% then the Sell price should be 109. If the highest price is 105 and you add 10% then the Sell Price should be 119. 
+
+If there are 6 or more other used pedals available for sale AND if the highest price is 91 or higher AND you are taking the highest price from the highest reverb suggested sell price. then add 15%. The number should always end in a 9. It should be the 9 that is closest to 10%. So if the highest price is 100 and you add 10% then the Sell price should be 109. If the highest price is 105 and you add 10% then the Sell Price should be 119. 
+
+If (there are 6 or more for sale AND the highest price is $90 or lower And you are taking the highest price from the transaction history, then add 15% and also have every price end in a 9.
+
+If (there are 6 or more for sale AND the highest price is $90 or lower And you are taking the highest price from the reverb suggests when you go to sell a pedal, then add 20% and also have every price end in a 9.
+
+If there are 5 or less other used pedals available for sale AND if the highest price is 91 or higher then add 20% and end in a 9. (it doesn't matter where the price came from, transaction history or reverb suggested price when selling the pedal)
+
+If there are 5 or less other used pedals available for sale AND If the highest price is 90 or lower then add 25% and end in a 9. (it doesn't matter where the price came from, transaction history or reverb suggested price when selling the pedal)
+
+8.5 The Sell Price column needs to be editable in case the user wants to change it
+
+9. 
+
+We then need a Sell Price Expiration Date column which is only populated and updated if the user enters the Sell price and overrides the calculated Sell price (or if no sell price existed and he entered a sell price manually). it's 1 year from the last user update.
+
+10.
+The tool should only add up all of the PTM Buy Prices and then run the formula to calculate the FMV (fair market value price) at the bottom
+
+

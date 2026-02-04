@@ -500,7 +500,14 @@
                                     brand: r.brand || null,
                                     price: r.price || null,
                                     offer: r.offer || 0,
-                                    hasPriceGuide: r.hasPriceGuide || false
+                                    hasPriceGuide: r.hasPriceGuide || false,
+                                    productId: r.productId || null,
+                                    ptmBuyPrice: r.ptmBuyPrice != null ? r.ptmBuyPrice : null,
+                                    ptmBuyPriceExpiresAt: r.ptmBuyPriceExpiresAt || null,
+                                    ptmSellPrice: r.ptmSellPrice != null ? r.ptmSellPrice : null,
+                                    ptmSellPriceExpiresAt: r.ptmSellPriceExpiresAt || null,
+                                    noMatch: !!r.noMatch,
+                                    partialMatch: !!r.partialMatch
                                 })),
                                 totalPrice: data.calculation.totalPrice || 0,
                                 totalOffer: data.calculation.totalOffer || 0
@@ -703,29 +710,59 @@
                                         <th>Pedal</th>
                                         <th>Condition</th>
                                         <th>Brand</th>
+                                        <th class="text-end">PTM Buy Price</th>
+                                        <th class="text-end">PTM Buy Exp</th>
                                         <th class="text-end">FMV</th>
                                         <th class="text-end">Offer</th>
+                                        <th class="text-end">PTM Sell Price</th>
+                                        <th class="text-end">PTM Sell Exp</th>
+                                        <th class="text-center">No Match?</th>
+                                        <th class="text-center">Partial match?</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${personData.pedals.map(p => `
-                                        <tr>
+                                    ${personData.pedals.map((p, idx) => {
+                                        const productId = (p.productId || '').replace(/'/g, "\\'");
+                                        const canEdit = !!p.productId;
+                                        const ptmVal = p.ptmBuyPrice != null ? p.ptmBuyPrice : '';
+                                        const expVal = p.ptmBuyPriceExpiresAt || '-';
+                                        const sellVal = p.ptmSellPrice != null ? p.ptmSellPrice : '';
+                                        const sellExpVal = p.ptmSellPriceExpiresAt || '-';
+                                        const rowId = 'ptm-row-' + personName.replace(/\s/g, '-') + '-' + idx;
+                                        const calcId = currentCalculationId || '';
+                                        const noMatch = !!p.noMatch;
+                                        const partialMatch = !!p.partialMatch;
+                                        return `
+                                        <tr data-product-id="${p.productId || ''}" data-row-id="${rowId}">
                                             <td>${p.matchedProduct || `<span class="no-match">${p.pedal} (No match)</span>`}</td>
                                             <td>${p.condition}</td>
                                             <td>${p.brand || '-'}</td>
-                                            <td class="text-end price-cell">${p.price ? '$' + p.price.toFixed(2) : 'N/A'}</td>
+                                            <td class="text-end">
+                                                ${canEdit ? `<input type="number" step="0.01" min="0" class="form-control form-control-sm d-inline-block" style="width:80px" value="${ptmVal}" id="ptm-buy-${rowId}" /> <button type="button" class="btn btn-sm btn-outline-primary ms-1" onclick="savePtmBuyPrice('${productId}', '${rowId}')">Save</button>` : '-'}
+                                            </td>
+                                            <td class="text-end" id="ptm-exp-${rowId}">${expVal}</td>
+                                            <td class="text-end price-cell">${p.price != null ? '$' + p.price.toFixed(2) : 'N/A'}</td>
                                             <td class="text-end offer-cell">${p.offer ? '$' + p.offer.toFixed(2) : '$0.00'}</td>
+                                            <td class="text-end">
+                                                ${canEdit ? `<input type="number" step="0.01" min="0" class="form-control form-control-sm d-inline-block" style="width:80px" value="${sellVal}" id="ptm-sell-${rowId}" /> <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="savePtmSellPrice('${productId}', '${rowId}')">Save</button>` : '-'}
+                                            </td>
+                                            <td class="text-end" id="ptm-sell-exp-${rowId}">${sellExpVal}</td>
+                                            <td class="text-center">${canEdit ? `<input type="checkbox" ${noMatch ? 'checked' : ''} onchange="savePedalFeedback('${productId}', '${calcId}', this.checked, document.getElementById('partial-${rowId}').checked)" id="nomatch-${rowId}" />` : '-'}</td>
+                                            <td class="text-center">${canEdit ? `<input type="checkbox" ${partialMatch ? 'checked' : ''} onchange="savePedalFeedback('${productId}', '${calcId}', document.getElementById('nomatch-${rowId}').checked, this.checked)" id="partial-${rowId}" />` : '-'}</td>
                                         </tr>
-                                    `).join('')}
+                                    `}).join('')}
                                     <tr class="total-row">
                                         <td colspan="3"><strong>TOTAL</strong></td>
+                                        <td colspan="2"></td>
                                         <td class="text-end price-cell"><strong>$${personData.totalPrice.toFixed(2)}</strong></td>
                                         <td></td>
+                                        <td colspan="4"></td>
                                     </tr>
                                     <tr class="offer-row">
                                         <td colspan="3"><strong>OFFER</strong></td>
-                                        <td></td>
+                                        <td colspan="3"></td>
                                         <td class="text-end offer-cell"><strong>$${personData.totalOffer.toFixed(2)}</strong></td>
+                                        <td colspan="4"></td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -785,6 +822,86 @@
             } catch (error) {
                 console.error('Error:', error);
                 alert('Error downloading file: ' + error.message);
+            }
+        }
+
+        // Save PTM Sell Price for a product (editable in results table)
+        async function savePtmSellPrice(productId, rowId) {
+            const input = document.getElementById('ptm-sell-' + rowId);
+            if (!input) return;
+            const raw = input.value.trim();
+            const ptmSellPrice = raw === '' ? null : parseFloat(raw);
+            if (raw !== '' && (isNaN(ptmSellPrice) || ptmSellPrice < 0)) {
+                alert('Please enter a valid number (0 or greater) or leave empty.');
+                return;
+            }
+            try {
+                const response = await fetch('/api/products/' + encodeURIComponent(productId) + '/ptm-sell-price', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ptmSellPrice: ptmSellPrice != null ? ptmSellPrice : null })
+                });
+                const data = await response.json();
+                if (data.success && data.ptmSellPriceExpiresAt) {
+                    const expEl = document.getElementById('ptm-sell-exp-' + rowId);
+                    if (expEl) expEl.textContent = data.ptmSellPriceExpiresAt.slice(0, 10);
+                } else if (data.success) {
+                    const expEl = document.getElementById('ptm-sell-exp-' + rowId);
+                    if (expEl) expEl.textContent = ptmSellPrice != null ? 'Saved' : '-';
+                } else {
+                    alert('Save failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error saving: ' + err.message);
+            }
+        }
+
+        // Save match feedback (No Match? / Partial match?) for a pedal in current calculation
+        async function savePedalFeedback(productId, calculationId, noMatch, partialMatch) {
+            if (!calculationId) return;
+            try {
+                const response = await fetch('/api/calculations/' + calculationId + '/pedal-feedback', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ productId, noMatch, partialMatch })
+                });
+                const data = await response.json();
+                if (!data.success) alert('Could not save match feedback: ' + (data.error || 'Unknown error'));
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // Save PTM Buy Price for a product (editable in results table)
+        async function savePtmBuyPrice(productId, rowId) {
+            const input = document.getElementById('ptm-buy-' + rowId);
+            if (!input) return;
+            const raw = input.value.trim();
+            const ptmBuyPrice = raw === '' ? null : parseFloat(raw);
+            if (raw !== '' && (isNaN(ptmBuyPrice) || ptmBuyPrice < 0)) {
+                alert('Please enter a valid number (0 or greater) or leave empty.');
+                return;
+            }
+            try {
+                const response = await fetch('/api/products/' + encodeURIComponent(productId) + '/ptm-buy-price', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ptmBuyPrice: ptmBuyPrice != null ? ptmBuyPrice : null })
+                });
+                const data = await response.json();
+                if (data.success && data.ptmBuyPriceExpiresAt) {
+                    const expEl = document.getElementById('ptm-exp-' + rowId);
+                    if (expEl) expEl.textContent = data.ptmBuyPriceExpiresAt.slice(0, 10);
+                } else if (data.success) {
+                    const expEl = document.getElementById('ptm-exp-' + rowId);
+                    if (expEl) expEl.textContent = ptmBuyPrice != null ? 'Saved' : '-';
+                } else {
+                    alert('Save failed: ' + (data.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Error saving: ' + err.message);
             }
         }
 
