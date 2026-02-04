@@ -657,7 +657,7 @@ app.post("/api/search", requireAuth, async (req, res) => {
         const reverbPgHistPrice = price;
         const reverbPgLink = buildReverbPgLink(product);
         const reverbMarketSoldPrice = get2ndLowestFromPriceGuide(product);
-        const reverbMarketSoldLink = buildReverbPgLink(product);
+        const reverbMarketSoldLink = buildReverbMarketSoldLink(product);
         const ptmBuyPrice = product.ptmBuyPrice != null ? product.ptmBuyPrice : null;
         const ptmBuyPriceExpiresAt = product.ptmBuyPriceExpiresAt || null;
         const expStr = ptmBuyPriceExpiresAt ? (ptmBuyPriceExpiresAt.toISOString ? ptmBuyPriceExpiresAt.toISOString().slice(0, 10) : ptmBuyPriceExpiresAt) : null;
