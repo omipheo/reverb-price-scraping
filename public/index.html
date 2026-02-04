@@ -507,7 +507,12 @@
                                     ptmSellPrice: r.ptmSellPrice != null ? r.ptmSellPrice : null,
                                     ptmSellPriceExpiresAt: r.ptmSellPriceExpiresAt || null,
                                     noMatch: !!r.noMatch,
-                                    partialMatch: !!r.partialMatch
+                                    partialMatch: !!r.partialMatch,
+                                    reverbPgHistPrice: r.reverbPgHistPrice != null ? r.reverbPgHistPrice : null,
+                                    reverbPgLink: r.reverbPgLink || null,
+                                    reverbMarketSoldPrice: r.reverbMarketSoldPrice != null ? r.reverbMarketSoldPrice : null,
+                                    reverbMarketSoldLink: r.reverbMarketSoldLink || null,
+                                    amtListedOnReverbMarket: r.amtListedOnReverbMarket != null ? r.amtListedOnReverbMarket : null
                                 })),
                                 totalPrice: data.calculation.totalPrice || 0,
                                 totalOffer: data.calculation.totalOffer || 0
@@ -712,8 +717,11 @@
                                         <th>Brand</th>
                                         <th class="text-end">PTM Buy Price</th>
                                         <th class="text-end">PTM Buy Exp</th>
-                                        <th class="text-end">FMV</th>
-                                        <th class="text-end">Offer</th>
+                                        <th class="text-end">Reverb PG Hist Price</th>
+                                        <th>Reverb PG Link</th>
+                                        <th class="text-end">Reverb Market Sold Price</th>
+                                        <th>Reverb Market Sold link</th>
+                                        <th class="text-end">Amt Listed</th>
                                         <th class="text-end">PTM Sell Price</th>
                                         <th class="text-end">PTM Sell Exp</th>
                                         <th class="text-center">No Match?</th>
@@ -732,6 +740,11 @@
                                         const calcId = currentCalculationId || '';
                                         const noMatch = !!p.noMatch;
                                         const partialMatch = !!p.partialMatch;
+                                        const reverbPgHistPrice = p.reverbPgHistPrice != null ? '$' + p.reverbPgHistPrice.toFixed(2) : 'N/A';
+                                        const reverbPgLink = p.reverbPgLink ? `<a href="${p.reverbPgLink}" target="_blank" class="btn btn-sm btn-link p-0">Link</a>` : '-';
+                                        const reverbMarketSoldPrice = p.reverbMarketSoldPrice != null ? '$' + p.reverbMarketSoldPrice.toFixed(2) : 'N/A';
+                                        const reverbMarketSoldLink = p.reverbMarketSoldLink ? `<a href="${p.reverbMarketSoldLink}" target="_blank" class="btn btn-sm btn-link p-0">Link</a>` : '-';
+                                        const amtListed = p.amtListedOnReverbMarket != null ? p.amtListedOnReverbMarket : '-';
                                         return `
                                         <tr data-product-id="${p.productId || ''}" data-row-id="${rowId}">
                                             <td>${p.matchedProduct || `<span class="no-match">${p.pedal} (No match)</span>`}</td>
@@ -741,8 +754,11 @@
                                                 ${canEdit ? `<input type="number" step="0.01" min="0" class="form-control form-control-sm d-inline-block" style="width:80px" value="${ptmVal}" id="ptm-buy-${rowId}" /> <button type="button" class="btn btn-sm btn-outline-primary ms-1" onclick="savePtmBuyPrice('${productId}', '${rowId}')">Save</button>` : '-'}
                                             </td>
                                             <td class="text-end" id="ptm-exp-${rowId}">${expVal}</td>
-                                            <td class="text-end price-cell">${p.price != null ? '$' + p.price.toFixed(2) : 'N/A'}</td>
-                                            <td class="text-end offer-cell">${p.offer ? '$' + p.offer.toFixed(2) : '$0.00'}</td>
+                                            <td class="text-end price-cell">${reverbPgHistPrice}</td>
+                                            <td class="text-center">${reverbPgLink}</td>
+                                            <td class="text-end price-cell">${reverbMarketSoldPrice}</td>
+                                            <td class="text-center">${reverbMarketSoldLink}</td>
+                                            <td class="text-end">${amtListed}</td>
                                             <td class="text-end">
                                                 ${canEdit ? `<input type="number" step="0.01" min="0" class="form-control form-control-sm d-inline-block" style="width:80px" value="${sellVal}" id="ptm-sell-${rowId}" /> <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="savePtmSellPrice('${productId}', '${rowId}')">Save</button>` : '-'}
                                             </td>
@@ -754,15 +770,15 @@
                                     <tr class="total-row">
                                         <td colspan="3"><strong>TOTAL</strong></td>
                                         <td colspan="2"></td>
+                                        <td colspan="5"></td>
                                         <td class="text-end price-cell"><strong>$${personData.totalPrice.toFixed(2)}</strong></td>
-                                        <td></td>
                                         <td colspan="4"></td>
                                     </tr>
                                     <tr class="offer-row">
                                         <td colspan="3"><strong>OFFER</strong></td>
-                                        <td colspan="3"></td>
+                                        <td colspan="8"></td>
                                         <td class="text-end offer-cell"><strong>$${personData.totalOffer.toFixed(2)}</strong></td>
-                                        <td colspan="4"></td>
+                                        <td colspan="2"></td>
                                     </tr>
                                 </tbody>
                             </table>
