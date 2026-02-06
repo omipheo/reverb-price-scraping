@@ -640,6 +640,7 @@
             try {
                 const response = await fetch('/api/upload', {
                     method: 'POST',
+                    credentials: 'include',
                     body: formData
                 });
 
@@ -822,7 +823,8 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error('Download failed');
+                    const errorData = await response.json().catch(() => ({ error: 'Download failed' }));
+                    throw new Error(errorData.error || 'Download failed');
                 }
 
                 const blob = await response.blob();

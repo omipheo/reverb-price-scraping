@@ -1068,7 +1068,7 @@ app.post("/api/download", requireAuth, async (req, res) => {
       }
 
       const rows = [
-        ["Person", "Pedal", "Condition", "Brand", "FMV", "Offer"],
+        ["Person", "Pedal", "Condition", "Brand", "PTM Buy Price", "PTM Buy Exp", "Reverb PG Hist Price", "Reverb PG Link", "Reverb Market Sold Price", "Reverb Market Sold link", "Amt Listed", "PTM Sell Price", "PTM Sell Exp", "No Match?", "Partial match?", "FMV", "Offer"],
       ];
 
       // Add pedal rows - use logged-in user's name instead of personName
@@ -1078,7 +1078,18 @@ app.post("/api/download", requireAuth, async (req, res) => {
           pedal.matchedProduct || pedal.pedal || "",
           pedal.condition || "",
           pedal.brand || "",
-          pedal.price || 0,
+          pedal.ptmBuyPrice != null ? pedal.ptmBuyPrice : "",
+          pedal.ptmBuyPriceExpiresAt ? (typeof pedal.ptmBuyPriceExpiresAt === 'string' ? pedal.ptmBuyPriceExpiresAt.slice(0, 10) : pedal.ptmBuyPriceExpiresAt.toISOString().slice(0, 10)) : "",
+          pedal.reverbPgHistPrice != null ? pedal.reverbPgHistPrice : "",
+          pedal.reverbPgLink || "",
+          pedal.reverbMarketSoldPrice != null ? pedal.reverbMarketSoldPrice : "",
+          pedal.reverbMarketSoldLink || "",
+          pedal.amtListedOnReverbMarket != null ? pedal.amtListedOnReverbMarket : "",
+          pedal.ptmSellPrice != null ? pedal.ptmSellPrice : "",
+          pedal.ptmSellPriceExpiresAt ? (typeof pedal.ptmSellPriceExpiresAt === 'string' ? pedal.ptmSellPriceExpiresAt.slice(0, 10) : pedal.ptmSellPriceExpiresAt.toISOString().slice(0, 10)) : "",
+          pedal.noMatch ? "Yes" : "No",
+          pedal.partialMatch ? "Yes" : "No",
+          pedal.ptmBuyPrice != null ? pedal.ptmBuyPrice : 0, // FMV is PTM Buy Price
           pedal.offer || 0,
         ]);
       }
@@ -1089,8 +1100,19 @@ app.post("/api/download", requireAuth, async (req, res) => {
         "TOTAL",
         "",
         "",
-        personData.totalPrice || 0,
-        "",
+        "", // PTM Buy Price
+        "", // PTM Buy Exp
+        "", // Reverb PG Hist Price
+        "", // Reverb PG Link
+        "", // Reverb Market Sold Price
+        "", // Reverb Market Sold link
+        "", // Amt Listed
+        "", // PTM Sell Price
+        "", // PTM Sell Exp
+        "", // No Match?
+        "", // Partial match?
+        personData.totalPrice || 0, // FMV
+        "", // Offer
       ]);
 
       // Add offer row
@@ -1099,8 +1121,19 @@ app.post("/api/download", requireAuth, async (req, res) => {
         "OFFER",
         "",
         "",
-        "",
-        personData.totalOffer || 0,
+        "", // PTM Buy Price
+        "", // PTM Buy Exp
+        "", // Reverb PG Hist Price
+        "", // Reverb PG Link
+        "", // Reverb Market Sold Price
+        "", // Reverb Market Sold link
+        "", // Amt Listed
+        "", // PTM Sell Price
+        "", // PTM Sell Exp
+        "", // No Match?
+        "", // Partial match?
+        "", // FMV
+        personData.totalOffer || 0, // Offer
       ]);
 
       // Add empty row for spacing
@@ -1122,7 +1155,7 @@ app.post("/api/download", requireAuth, async (req, res) => {
     // If multiple people, also create a combined sheet
     if (dataEntries.length > 1) {
       const combinedRows = [
-        ["Person", "Pedal", "Condition", "Brand", "Price", "Offer"],
+        ["Person", "Pedal", "Condition", "Brand", "PTM Buy Price", "PTM Buy Exp", "Reverb PG Hist Price", "Reverb PG Link", "Reverb Market Sold Price", "Reverb Market Sold link", "Amt Listed", "PTM Sell Price", "PTM Sell Exp", "No Match?", "Partial match?", "FMV", "Offer"],
       ];
 
       for (const [personName, personData] of dataEntries) {
@@ -1137,7 +1170,18 @@ app.post("/api/download", requireAuth, async (req, res) => {
             pedal.matchedProduct || pedal.pedal || "",
             pedal.condition || "",
             pedal.brand || "",
-            pedal.price || 0,
+            pedal.ptmBuyPrice != null ? pedal.ptmBuyPrice : "",
+            pedal.ptmBuyPriceExpiresAt ? (typeof pedal.ptmBuyPriceExpiresAt === 'string' ? pedal.ptmBuyPriceExpiresAt.slice(0, 10) : pedal.ptmBuyPriceExpiresAt.toISOString().slice(0, 10)) : "",
+            pedal.reverbPgHistPrice != null ? pedal.reverbPgHistPrice : "",
+            pedal.reverbPgLink || "",
+            pedal.reverbMarketSoldPrice != null ? pedal.reverbMarketSoldPrice : "",
+            pedal.reverbMarketSoldLink || "",
+            pedal.amtListedOnReverbMarket != null ? pedal.amtListedOnReverbMarket : "",
+            pedal.ptmSellPrice != null ? pedal.ptmSellPrice : "",
+            pedal.ptmSellPriceExpiresAt ? (typeof pedal.ptmSellPriceExpiresAt === 'string' ? pedal.ptmSellPriceExpiresAt.slice(0, 10) : pedal.ptmSellPriceExpiresAt.toISOString().slice(0, 10)) : "",
+            pedal.noMatch ? "Yes" : "No",
+            pedal.partialMatch ? "Yes" : "No",
+            pedal.ptmBuyPrice != null ? pedal.ptmBuyPrice : 0, // FMV is PTM Buy Price
             pedal.offer || 0,
           ]);
         }
@@ -1146,16 +1190,38 @@ app.post("/api/download", requireAuth, async (req, res) => {
           "TOTAL",
           "",
           "",
-          personData.totalPrice || 0,
-          "",
+          "", // PTM Buy Price
+          "", // PTM Buy Exp
+          "", // Reverb PG Hist Price
+          "", // Reverb PG Link
+          "", // Reverb Market Sold Price
+          "", // Reverb Market Sold link
+          "", // Amt Listed
+          "", // PTM Sell Price
+          "", // PTM Sell Exp
+          "", // No Match?
+          "", // Partial match?
+          personData.totalPrice || 0, // FMV
+          "", // Offer
         ]);
         combinedRows.push([
           userName,
           "OFFER",
           "",
           "",
-          "",
-          personData.totalOffer || 0,
+          "", // PTM Buy Price
+          "", // PTM Buy Exp
+          "", // Reverb PG Hist Price
+          "", // Reverb PG Link
+          "", // Reverb Market Sold Price
+          "", // Reverb Market Sold link
+          "", // Amt Listed
+          "", // PTM Sell Price
+          "", // PTM Sell Exp
+          "", // No Match?
+          "", // Partial match?
+          "", // FMV
+          personData.totalOffer || 0, // Offer
         ]);
         combinedRows.push([]);
       }
