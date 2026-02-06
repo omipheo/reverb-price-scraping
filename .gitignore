@@ -44,6 +44,8 @@ build/
 
 # Test/temporary files
 1.js
+*.tmp
+*.temp
 
 # PM2
 .pm2/
@@ -52,7 +54,17 @@ build/
 data/
 *.db
 
+# Test data and temporary files
 /test_data
+*.xlsx
+*.csv
+*.txt
+!README.md
 
 # Large data files
 products.json
+
+# Debug files
+*_debug.*
+*debug.*
+brands_debug.txt
