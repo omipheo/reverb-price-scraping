@@ -268,7 +268,7 @@
         // Authentication functions
         async function checkAuth() {
             try {
-                const response = await fetch('/api/user');
+                const response = await fetch('/api/user', { credentials: 'include' });
                 if (response.ok) {
                     const user = await response.json();
                     currentUser = user;
@@ -388,7 +388,7 @@
             if (!currentUser) return;
 
             try {
-                const response = await fetch('/api/calculations');
+                const response = await fetch('/api/calculations', { credentials: 'include' });
                 const data = await response.json();
                 
                 const historyList = document.getElementById('historyList');
@@ -462,7 +462,8 @@
 
             try {
                 const response = await fetch(`/api/calculations/${calculationId}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    credentials: 'include'
                 });
 
                 const data = await response.json();
@@ -483,7 +484,7 @@
 
         async function loadCalculation(calculationId) {
             try {
-                const response = await fetch(`/api/calculations/${calculationId}`);
+                const response = await fetch(`/api/calculations/${calculationId}`, { credentials: 'include' });
                 const data = await response.json();
                 
                 if (data.calculation) {
@@ -590,6 +591,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify({ pedals })
                 });
 
@@ -671,6 +673,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify({ pedals })
                 });
 
@@ -814,6 +817,7 @@
                     headers: {
                         'Content-Type': 'application/json'
                     },
+                    credentials: 'include',
                     body: JSON.stringify({ data: currentResults })
                 });
 
@@ -855,6 +859,7 @@
                 const response = await fetch('/api/products/' + encodeURIComponent(productId) + '/ptm-sell-price', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({ ptmSellPrice: ptmSellPrice != null ? ptmSellPrice : null })
                 });
                 const data = await response.json();
@@ -880,6 +885,7 @@
                 const response = await fetch('/api/calculations/' + calculationId + '/pedal-feedback', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({ productId, noMatch, partialMatch })
                 });
                 const data = await response.json();
@@ -903,6 +909,7 @@
                 const response = await fetch('/api/products/' + encodeURIComponent(productId) + '/ptm-buy-price', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({ ptmBuyPrice: ptmBuyPrice != null ? ptmBuyPrice : null })
                 });
                 const data = await response.json();
