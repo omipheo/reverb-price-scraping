@@ -100,7 +100,7 @@ const searchPedals = async (req, res) => {
           ptmBuyPriceExpiresAt: null,
           ptmSellPrice: null,
           ptmSellPriceExpiresAt: null,
-          noMatch: false,
+          noMatch: true,
           partialMatch: false,
         });
       }

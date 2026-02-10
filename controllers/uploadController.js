@@ -164,7 +164,7 @@ const uploadFile = async (req, res) => {
             productId: null,
             ptmSellPrice: null,
             ptmSellPriceExpiresAt: null,
-            noMatch: false,
+            noMatch: true,
             partialMatch: false,
           });
         }
