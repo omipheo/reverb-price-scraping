@@ -9,18 +9,33 @@ const REVERB_GQL_HEADERS = {
   Referer: "https://reverb.com/",
 };
 
-// Helper: build Reverb Price Guide link (working format: query param)
-function buildReverbPgLink(product) {
-  if (!product || !product.slug) return null;
-  const query = product.slug.replace(/-/g, "+");
-  return `https://reverb.com/price-guide?query=${query}`;
+// Build query string for Reverb URLs: prefer slug, else brand + title
+function reverbQueryFromProduct(product) {
+  if (!product) return null;
+  if (product.slug && product.slug.trim()) {
+    return product.slug.trim().replace(/-/g, "+");
+  }
+  const brand = (product.brand || "").trim();
+  const title = (product.title || "").trim();
+  const combined = [brand, title].filter(Boolean).join(" ");
+  if (!combined) return null;
+  return combined.replace(/\s+/g, "+");
 }
 
-// Helper: build Reverb Marketplace Sold listings link (for Reverb Market Sold link)
+// Helper: build Reverb Price Guide link (from slug or brand + name)
+function buildReverbPgLink(product) {
+  const query = reverbQueryFromProduct(product);
+  if (!query) return null;
+  return `https://reverb.com/price-guide?query=${encodeURIComponent(query).replace(/%20/g, "+")}`;
+}
+
+// Helper: build Reverb Marketplace Sold listings link (from slug or brand + name)
 function buildReverbMarketSoldLink(product) {
-  if (!product || !product.slug) return null;
-  const query = product.slug.replace(/-/g, "+");
-  return `https://reverb.com/marketplace?query=${query}&show_only_sold=true`;
+  const query = reverbQueryFromProduct(product);
+  if (!query) return null;
+  const make = (product.brand || "").toLowerCase().trim().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  const base = `https://reverb.com/marketplace?query=${encodeURIComponent(query).replace(/%20/g, "+")}&show_only_sold=true`;
+  return make ? `${base}&make=${encodeURIComponent(make)}&product_type=effects-and-pedals` : base;
 }
 
 // Helper: 2nd lowest price from price guide (historical/sold data). Client: "use the 2nd lowest historical price".

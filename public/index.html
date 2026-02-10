@@ -249,7 +249,12 @@
 
         <!-- Results Section -->
         <div class="results-section" id="resultsSection" style="display: none;">
-            <h3 class="mb-4">Results</h3>
+            <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                <h3 class="mb-0">Results</h3>
+                <button class="btn btn-outline-secondary btn-sm" onclick="toggleHistorySidebar()" title="Show or hide calculation history">
+                    <i class="bi bi-clock-history"></i> <span id="historyToggleLabelResults">Hide History</span>
+                </button>
+            </div>
             <div id="resultsContainer"></div>
             <div class="mt-4">
                 <button class="btn btn-success btn-lg" onclick="downloadResults()">
@@ -295,17 +300,21 @@
             const sidebar = document.getElementById('historySidebar');
             const main = document.querySelector('.main-content');
             const label = document.getElementById('historyToggleLabel');
+            const labelResults = document.getElementById('historyToggleLabelResults');
             const icon = document.getElementById('historyToggleIcon');
             if (!sidebar || !main) return;
+            const labelText = visible ? 'Hide History' : 'Show History';
             if (visible) {
                 sidebar.classList.remove('hidden');
                 main.classList.remove('full-width');
-                if (label) label.textContent = 'Hide History';
+                if (label) label.textContent = labelText;
+                if (labelResults) labelResults.textContent = labelText;
                 if (icon) icon.className = 'bi bi-clock-history';
             } else {
                 sidebar.classList.add('hidden');
                 main.classList.add('full-width');
-                if (label) label.textContent = 'Show History';
+                if (label) label.textContent = labelText;
+                if (labelResults) labelResults.textContent = labelText;
                 if (icon) icon.className = 'bi bi-clock-history';
             }
         }
@@ -619,13 +628,13 @@
                 return;
             }
 
-            // Parse pedals from text
-            const lines = text.split('\n').filter(line => line.trim());
+            // Parse pedals from text (one per line; optional "Name, Condition")
+            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
             const pedals = lines.map(line => {
                 const parts = line.split(',').map(p => p.trim());
                 return {
-                    name: parts[0] || line.trim(),
-                    condition: parts[1] || 'Unknown'
+                    name: (parts[0] || line).trim(),
+                    condition: (parts[1] || 'Unknown').trim() || 'Unknown'
                 };
             });
 
