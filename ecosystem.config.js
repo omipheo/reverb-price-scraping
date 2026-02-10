@@ -18,5 +18,17 @@ module.exports = {
       max_restarts: 10,
       min_uptime: "10s",
     },
+    {
+      name: "marketplace-sold",
+      script: "scripts/scrape-marketplace-sold.js",
+      cwd: "./",
+      instances: 1,
+      exec_mode: "fork",
+      autorestart: false,
+      watch: false,
+      error_file: "./logs/marketplace-sold-error.log",
+      out_file: "./logs/marketplace-sold-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss Z",
+    },
   ],
 };

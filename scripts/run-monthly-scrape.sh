@@ -60,9 +60,21 @@ else
     tail -n 50 "$LOG_FILE" | while IFS= read -r line; do
         log "$line"
     done
+    exit $EXIT_CODE
+fi
+
+# Run marketplace-sold scrape (2nd lowest sold price per product)
+log "Executing scrape-marketplace-sold.js..."
+node "$SCRIPT_DIR/scrape-marketplace-sold.js" >> "$LOG_FILE" 2>&1
+EXIT_CODE_MARKET=$?
+if [ $EXIT_CODE_MARKET -eq 0 ]; then
+    log "scrape-marketplace-sold.js completed successfully"
+else
+    log "WARNING: scrape-marketplace-sold.js exited with code: $EXIT_CODE_MARKET"
+    echo "[$(date '+%Y-%m-%d %H%M%S')] scrape-marketplace-sold.js exit code: $EXIT_CODE_MARKET" >> "$ERROR_LOG"
 fi
 
 # Clean up old logs (keep last 12 months)
 find "$LOG_DIR" -name "scrape-monthly-*.log" -type f -mtime +365 -delete 2>/dev/null
 
-exit $EXIT_CODE
+exit 0
