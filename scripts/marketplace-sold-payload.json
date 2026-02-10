@@ -1,0 +1,5 @@
+{
+  "operationName": "Core_Marketplace_CombinedMarketplaceSearch",
+  "query": "query Core_Marketplace_CombinedMarketplaceSearch($inputListings: Input_reverb_search_ListingsSearchRequest) {\n  listingsSearch(input: $inputListings) {\n    total\n    listings {\n      _id\n      slug\n      pricing {\n        buyerPrice {\n          amount\n          amountCents\n        }\n      }\n    }\n  }\n}\n",
+  "_comment": "If the API returns validation errors, replace 'query' with the full query string from Chrome DevTools (Network tab -> gql.reverb.com request -> Payload -> query)."
+}

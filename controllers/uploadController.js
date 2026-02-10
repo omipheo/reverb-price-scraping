@@ -2,7 +2,7 @@ const XLSX = require("xlsx");
 const Calculation = require("../model/calculation.mdl");
 const { findMatchingProduct } = require("../services/matching");
 const { calculatePriceFromTransactions, calculateOffer, calculatePtmSellPrice } = require("../utils/pricing");
-const { buildReverbPgLink, buildReverbMarketSoldLink, get2ndLowestFromPriceGuide } = require("../utils/reverb");
+const { buildReverbPgLink } = require("../utils/reverb");
 
 const uploadFile = async (req, res) => {
   try {
@@ -88,8 +88,9 @@ const uploadFile = async (req, res) => {
           const price = calculatePriceFromTransactions(product, condition);
           const reverbPgHistPrice = price;
           const reverbPgLink = buildReverbPgLink(product);
-          const reverbMarketSoldPrice = get2ndLowestFromPriceGuide(product);
-          const reverbMarketSoldLink = buildReverbMarketSoldLink(product);
+          // Reverb Market Sold: only from marketplace-sold scrape (blank until that scrape runs)
+          const reverbMarketSoldPrice = product.reverbMarketSoldPrice ?? null;
+          const reverbMarketSoldLink = product.reverbMarketSoldLink ?? null;
           const ptmBuyPrice = product.ptmBuyPrice != null ? product.ptmBuyPrice : null;
           const ptmBuyPriceExpiresAt = product.ptmBuyPriceExpiresAt || null;
           const expStr = ptmBuyPriceExpiresAt ? (ptmBuyPriceExpiresAt.toISOString ? ptmBuyPriceExpiresAt.toISOString().slice(0, 10) : ptmBuyPriceExpiresAt) : null;

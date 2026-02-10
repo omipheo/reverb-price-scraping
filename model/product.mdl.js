@@ -49,6 +49,11 @@ const ProductSchema = new Schema({
   ptmSellPrice: { type: Number, default: null },
   ptmSellPriceExpiresAt: { type: Date, default: null },
 
+  // Reverb Marketplace Sold (from marketplace sold-listings scrape)
+  reverbMarketSoldPrice: { type: Number, default: null },
+  reverbMarketSoldLink: { type: String, default: null },
+  reverbMarketSoldLastUpdated: { type: Date, default: null },
+
   createdAt: { type: Date, default: Date.now },
 });
 

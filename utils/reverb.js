@@ -1,3 +1,14 @@
+// Reverb GraphQL API (same as scripts/scrape-monthly.js)
+const GQL_URL = "https://gql.reverb.com/graphql";
+const REVERB_GQL_HEADERS = {
+  "Content-Type": "application/json",
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  Accept: "application/json",
+  Origin: "https://reverb.com",
+  Referer: "https://reverb.com/",
+};
+
 // Helper: build Reverb Price Guide link (working format: query param)
 function buildReverbPgLink(product) {
   if (!product || !product.slug) return null;
@@ -24,6 +35,8 @@ function get2ndLowestFromPriceGuide(product) {
 }
 
 module.exports = {
+  GQL_URL,
+  REVERB_GQL_HEADERS,
   buildReverbPgLink,
   buildReverbMarketSoldLink,
   get2ndLowestFromPriceGuide,
