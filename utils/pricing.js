@@ -41,7 +41,6 @@ function calculatePriceFromTransactions(product, condition = null) {
         return txCondition === normalizedCondition;
       })
       .slice(0, 6);
-    console.log("relevantTransactions", relevantTransactions);
     // Take average of middle 2 (remove first 2 and last 2, keep middle 2)
     if (relevantTransactions.length >= 6) {
       relevantTransactions = relevantTransactions.slice(2, 4); // Middle 2 (indices 2 and 3)
@@ -90,7 +89,6 @@ function calculatePriceFromTransactions(product, condition = null) {
   if (amounts.length === 0) {
     return null;
   }
-  console.log("amounts", amounts);
   const sum = amounts.reduce((a, b) => a + b, 0);
   const average = sum / amounts.length;
   

@@ -1,0 +1,432 @@
+{
+  "total": 500,
+  "matched": 428,
+  "noMatch": 72,
+  "matchRatePct": "85.6",
+  "noMatchList": [
+    "Demonfx King of Drive",
+    "Quilter SuperBlock US, original box, power supply, manual",
+    "Electronica FL-01 Flanger",
+    "EHX Synth 9",
+    "e-mu systems vintage keys rack",
+    "empress para eq mkii",
+    "Meastro Ranger Overdrive",
+    "Meastro Arcas Comp Sustain",
+    "Meastro Agena Envelope Filter",
+    "Meastro Fuzz Tone FZ-M",
+    "Meastro Invader Distortion",
+    "Meastro Titan Boost",
+    "OneSpot CS12",
+    "Exotic RC booster V2",
+    "EH Mel9 (Mint",
+    "EH SuperEgo (Mint",
+    "Maxon GE601 Graphic EQ; mint",
+    "Hughs and Kettner Tube Rotosphere Mk II w/12v power supply",
+    "Pigtronix Mothership 2 analog synthesizer w/18v power supply",
+    "EBS Bass IQ triple envelope filter",
+    "Ibanez Tube Screamer TS 808",
+    "Furham power conditioner",
+    "Cry baby White LE",
+    "DOD FX 96 Echo",
+    "Lyon By washburn Chorus",
+    "DOD Wah Filter 545-A",
+    "Suncoast BC2 Bass Preamp",
+    "UAFX Lion",
+    "freidman dirty shirley",
+    "Analogman Mod Maxon SD-9",
+    "Artelia Pedals Cornish G-2 Clone",
+    "Artelia Pedals Custom Cornish SS-3 G-2 duplex Clone",
+    "Atomic Tone Saturation Triptych",
+    "BYOC Lil Delay",
+    "BYOC OD-1 Mini clone",
+    "Caitlinbread Dirty Little Secret",
+    "DOD FX 65 Stereo Chorus",
+    "GuitarPCB Animal Distortion Alchemy Audio",
+    "Guyatone TO-1 Tube Distortion",
+    "Ibanez Stereo Chorus CS-9",
+    "IbanezMSL Metal Screamer",
+    "Ilitch Classic One Distortion",
+    "Jason Daughtry COT 50 / Electra Clone",
+    "Kasha Rockmod Distortion PreAmp Pedal",
+    "Looopers Custom Stereo Dual Loop Switcher",
+    "MI Audio Classic Distortion Special Limited Edition One Of 100",
+    "MI Audio Crossover Drive",
+    "Modest Mike Modded Boss SD-1 all mods",
+    "Pedal Digger's 819 Overdrive",
+    "Pharoah Amps Class-A-Boost",
+    "Pigrtronix Aria Disnortion",
+    "Rocketfire Modded Danelectro Cool Cat OD",
+    "Runoff Groove Trivibe",
+    "Sobbat Drive Breaker 1",
+    "Sobbat Drive Breaker 2",
+    "Stacks FX Zenor",
+    "SviSound MetalZoid",
+    "SviSound SpectraZoid",
+    "Teese RMC-10",
+    "Visual Sound(Truetone) VS-XO dual OD",
+    "Visual Sound(Truetone) Route 66(latest version) Comp/OD",
+    "Voodoo lab pedal power 2+ with extra long power cable",
+    "analogman modded dd-3",
+    "analogman tv mod handwired ibanez tubescreamer",
+    "Crybaby Q Zone",
+    "UA ox stomp",
+    "Line 6 HD 500x",
+    "helix hx stomp",
+    "uafx 1176",
+    "alabs cetus reverb",
+    "demonfx freedmman be-odx",
+    "rockstock nano tuner"
+  ],
+  "sampleMatches": [
+    {
+      "input": "Line 6 HX Stomp",
+      "matched": "Line 6 HX Stomp",
+      "pgPrice": 410.77,
+      "marketSold": 450,
+      "ptmSell": 769
+    },
+    {
+      "input": "Light Pink Keeley Katana",
+      "matched": "Keeley Katana Mini Boost Pedal",
+      "pgPrice": 68.25,
+      "marketSold": 61.47,
+      "ptmSell": 229
+    },
+    {
+      "input": "JET Micro",
+      "matched": "Hologram Electronics Infinite Jets Resynthesizer",
+      "pgPrice": 195.86,
+      "marketSold": 160,
+      "ptmSell": 359
+    },
+    {
+      "input": "Dunlop Volume Mini",
+      "matched": "Dunlop DVP3 Volume X Pedal",
+      "pgPrice": 72.22,
+      "marketSold": 60,
+      "ptmSell": 169
+    },
+    {
+      "input": "Ibanez TS9DX Turbo Tube Screamer",
+      "matched": "Ibanez TS9DX Turbo Tube Screamer 1998 - Present",
+      "pgPrice": 76.57,
+      "marketSold": 54,
+      "ptmSell": 259
+    },
+    {
+      "input": "Boss CE-2w",
+      "matched": "Boss CE-2W Waza Craft Chorus",
+      "pgPrice": 161.41,
+      "marketSold": 149.95,
+      "ptmSell": 269
+    },
+    {
+      "input": "Danelectro Spring King Reverb",
+      "matched": "Danelectro Spring King Reverb",
+      "pgPrice": 111.9,
+      "marketSold": 85,
+      "ptmSell": 249
+    },
+    {
+      "input": "Dunlop Cry Baby Standard Wah",
+      "matched": "Dunlop GCB95 Cry Baby Standard Wah",
+      "pgPrice": 57,
+      "marketSold": 35,
+      "ptmSell": 189
+    },
+    {
+      "input": "tc electronic Ditto Looper",
+      "matched": "TC Electronic Ditto+ Looper",
+      "pgPrice": 64.15,
+      "marketSold": 90,
+      "ptmSell": 189
+    },
+    {
+      "input": "DigiTech Vocalist Live 2",
+      "matched": "DigiTech Vocalist Live 2",
+      "pgPrice": 139.35,
+      "marketSold": 99,
+      "ptmSell": 299
+    },
+    {
+      "input": "BC Soul Vibe",
+      "matched": "Nobels ODR-1 BC Natural Overdrive",
+      "pgPrice": 75.12,
+      "marketSold": 71.99,
+      "ptmSell": 249
+    },
+    {
+      "input": "walrus audio julia",
+      "matched": "Walrus Audio Julia Chorus / Vibrato V2",
+      "pgPrice": 145.79,
+      "marketSold": null,
+      "ptmSell": 239
+    },
+    {
+      "input": "eqd plumes",
+      "matched": "Earthquaker Devices / Dr. Z ZEQD-Pre",
+      "pgPrice": 329.06,
+      "marketSold": null,
+      "ptmSell": 439
+    },
+    {
+      "input": "mr black eterna",
+      "matched": "Mr. Black Eterna Gold",
+      "pgPrice": 102.74,
+      "marketSold": 105,
+      "ptmSell": 219
+    },
+    {
+      "input": "behringer echo machine em600",
+      "matched": "Behringer EM600 Echo Machine Pedal",
+      "pgPrice": 61.05,
+      "marketSold": 40,
+      "ptmSell": 199
+    },
+    {
+      "input": "wampler belle",
+      "matched": "Wampler Belle Overdrive Mini",
+      "pgPrice": 90,
+      "marketSold": 92,
+      "ptmSell": 169
+    },
+    {
+      "input": "tc hyper gravity",
+      "matched": "TC Electronic HyperGravity Mini Compressor",
+      "pgPrice": 49.05,
+      "marketSold": 50,
+      "ptmSell": 109
+    },
+    {
+      "input": "Keeley Katana clean boost pedal mini",
+      "matched": "Keeley Katana Mini Boost Pedal",
+      "pgPrice": 68.25,
+      "marketSold": 61.47,
+      "ptmSell": 229
+    },
+    {
+      "input": "Mooer Baby Bomb 30 watt power amp",
+      "matched": "Mooer Baby Bomb 30 Digital Micro Power Amp",
+      "pgPrice": 52.95,
+      "marketSold": 60,
+      "ptmSell": 119
+    },
+    {
+      "input": "JHS Colourbox V2",
+      "matched": "JHS Summing Amp",
+      "pgPrice": 71.84,
+      "marketSold": 40,
+      "ptmSell": 99
+    },
+    {
+      "input": "Boss Ds-1",
+      "matched": "Boss DS-1-4A 40th Anniversary Distortion",
+      "pgPrice": 84.9,
+      "marketSold": 45.96,
+      "ptmSell": 329
+    },
+    {
+      "input": "MXR Blue Box",
+      "matched": "MXR M103 Blue Box Octave Fuzz Pedal",
+      "pgPrice": 45.15,
+      "marketSold": 47,
+      "ptmSell": 189
+    },
+    {
+      "input": "Digitech Bass Synth Wah",
+      "matched": "Digitech Bass Synth Wah",
+      "pgPrice": 148.05,
+      "marketSold": 70,
+      "ptmSell": 439
+    },
+    {
+      "input": "Boss MT-2W",
+      "matched": "Boss MT-2W Metal Zone Waza Craft",
+      "pgPrice": 109.79,
+      "marketSold": 99,
+      "ptmSell": 189
+    },
+    {
+      "input": "Guitar Xciter",
+      "matched": "Aphex Guitar Xciter",
+      "pgPrice": 95.55,
+      "marketSold": 56.94,
+      "ptmSell": 169
+    },
+    {
+      "input": "Boss CE-20",
+      "matched": "Boss CE-20 Chorus Ensemble",
+      "pgPrice": 84.75,
+      "marketSold": 85,
+      "ptmSell": 249
+    },
+    {
+      "input": "Fulltone Deja Vibe CS-MDV mkII",
+      "matched": "Fulltone CS-MDV MkII Custom Shop Mini Deja Vibe MkII",
+      "pgPrice": 193.64,
+      "marketSold": 180,
+      "ptmSell": 529
+    },
+    {
+      "input": "Fulltone Supa-Trem V1 doesn't have the volume trim pot",
+      "matched": "Fulltone Supa-Trem Tremolo",
+      "pgPrice": 104.25,
+      "marketSold": 85,
+      "ptmSell": 939
+    },
+    {
+      "input": "Fulltone Octafuzz",
+      "matched": "Fulltone OF-2 Octafuzz 2",
+      "pgPrice": 102.6,
+      "marketSold": 90,
+      "ptmSell": 839
+    },
+    {
+      "input": "Kelly Hydra",
+      "matched": "Jackson Kelly / Warrior Molded Guitar Case",
+      "pgPrice": 195.3,
+      "marketSold": null,
+      "ptmSell": 309
+    },
+    {
+      "input": "Subdecay Proteus",
+      "matched": "Subdecay Proteus Auto Filter",
+      "pgPrice": 114.3,
+      "marketSold": 152.15,
+      "ptmSell": 229
+    },
+    {
+      "input": "dunlop cry baby bass mini",
+      "matched": "Dunlop CBM105Q Cry Baby Mini Bass Wah",
+      "pgPrice": 93.15,
+      "marketSold": 75,
+      "ptmSell": 179
+    },
+    {
+      "input": "fish delay reverb",
+      "matched": "Fishman AFX Delay",
+      "pgPrice": 65.7,
+      "marketSold": 55,
+      "ptmSell": 219
+    },
+    {
+      "input": "vox wah",
+      "matched": "Vox V845 Classic Wah",
+      "pgPrice": 49.2,
+      "marketSold": 39,
+      "ptmSell": 139
+    },
+    {
+      "input": "ehx dmm big box",
+      "matched": "Electro-Harmonix EHX-2020 Pedal Tuner",
+      "pgPrice": 43.05,
+      "marketSold": 32,
+      "ptmSell": 69
+    },
+    {
+      "input": "Hohner Tri Dirty Booster",
+      "matched": "Hohner HW220-N Western Series Steel String Acoustic Guitar Natural",
+      "pgPrice": 367.81,
+      "marketSold": null,
+      "ptmSell": 1049
+    },
+    {
+      "input": "ehx black russian big muff",
+      "matched": "Electro-Harmonix EHX-2020 Pedal Tuner",
+      "pgPrice": 43.05,
+      "marketSold": 32,
+      "ptmSell": 69
+    },
+    {
+      "input": "Moog Minifooger MF Drive 2013 - Black",
+      "matched": "Moog Minifooger MF Flange",
+      "pgPrice": 170.25,
+      "marketSold": 114.62,
+      "ptmSell": 489
+    },
+    {
+      "input": "MXR M83 Bass Chorus Deluxe 2012 - Present - Teal",
+      "matched": "MXR M83 Bass Chorus Deluxe",
+      "pgPrice": 111.15,
+      "marketSold": 100,
+      "ptmSell": 219
+    },
+    {
+      "input": "TC Electronic TC XII B/K Programmable Phaser 2000s - Black",
+      "matched": "TC Electronic TC XII Phaser",
+      "pgPrice": 196.81,
+      "marketSold": 129,
+      "ptmSell": 439
+    },
+    {
+      "input": "MXR CSP210 Sub Machine Octave Fuzz 2010s - Purple",
+      "matched": "MXR CSP210 Sub Machine Octave Fuzz",
+      "pgPrice": 87.6,
+      "marketSold": 99,
+      "ptmSell": 169
+    },
+    {
+      "input": "EarthQuaker Devices Hoof Reaper Double Fuzz with Octave Up 2011 - 2018 - Various",
+      "matched": "EarthQuaker Devices Hoof Reaper Double Fuzz with Octave Up V2",
+      "pgPrice": 175.35,
+      "marketSold": 200,
+      "ptmSell": 349
+    },
+    {
+      "input": "EarthQuaker Devices Sea Machine Super Chorus V2",
+      "matched": "EarthQuaker Devices Sea Machine Super Chorus V2",
+      "pgPrice": 93.6,
+      "marketSold": 100,
+      "ptmSell": 219
+    },
+    {
+      "input": "Way Huge WHE707 Supa-Puss Analog Delay 2013 - 2021 - Blue",
+      "matched": "Way Huge WM91 Smalls Pork & Pickle Bass Overdrive & Fuzz",
+      "pgPrice": 160.49,
+      "marketSold": 120,
+      "ptmSell": 219
+    },
+    {
+      "input": "Boss BF-2B Bass Flanger 1986 - 1988 - Brown",
+      "matched": "Boss BF-2B Bass Flanger",
+      "pgPrice": 80.55,
+      "marketSold": 55.69,
+      "ptmSell": 219
+    },
+    {
+      "input": "EarthQuaker Devices Cloven Hoof Fuzz Grinder",
+      "matched": "EarthQuaker Devices Cloven Hoof Fuzz Grinder",
+      "pgPrice": 135.25,
+      "marketSold": 107,
+      "ptmSell": 279
+    },
+    {
+      "input": "Boss OC-3 Super Octave 2003 - Present - Brown",
+      "matched": "Boss OC-3 Super Octave",
+      "pgPrice": 73.35,
+      "marketSold": 70,
+      "ptmSell": 149
+    },
+    {
+      "input": "EarthQuaker Devices Grand Orbiter Phase Machine V3",
+      "matched": "EarthQuaker Devices Grand Orbiter Phase Machine V3",
+      "pgPrice": 118.8,
+      "marketSold": 120,
+      "ptmSell": 229
+    },
+    {
+      "input": "MXR M108 Ten Band EQ 2010 - 2016 - Black",
+      "matched": "MXR M108 Ten Band EQ",
+      "pgPrice": 91.97,
+      "marketSold": 65,
+      "ptmSell": 169
+    },
+    {
+      "input": "EarthQuaker Devices Dispatch Master",
+      "matched": "EarthQuaker Devices Dispatch Master Digital Delay & Reverb",
+      "pgPrice": 97.95,
+      "marketSold": 120,
+      "ptmSell": 249
+    }
+  ]
+}

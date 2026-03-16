@@ -56,7 +56,7 @@ data/
 
 # Test data and temporary files
 /test_data
-*.xlsx
+# *.xlsx
 *.csv
 *.txt
 !README.md

@@ -8,7 +8,7 @@
  * listings; scrape-monthly uses Core_SellFlow_Search (cspSearch) and
  * Search_PriceGuideTool_TransactionTable (priceRecordsSearch).
  *
- * Usage: node scripts/scrape-marketplace-sold.js [--dry-run] [--limit=N]
+ * Usage: node scripts/scrape-marketplace-sold.js [--dry-run] [--limit=N] [--concurrency=N]
  *
  * Requires: MONGO_URI in .env. Run scripts/capture-marketplace-graphql.js first
  * to populate scripts/marketplace-sold-payload.json from the live site.
@@ -28,7 +28,8 @@ const HEADERS = REVERB_GQL_HEADERS;
 const PAYLOAD_PATH = path.join(__dirname, "marketplace-sold-payload.json");
 const CATEGORY_SLUG = "effects-and-pedals";
 const PAGE_SIZE = 45;
-const DELAY_MS = 400;
+const DELAY_MS = 150;
+const DEFAULT_CONCURRENT = 6;
 
 function slugifyBrand(brand) {
   if (!brand || typeof brand !== "string") return "";
@@ -46,11 +47,16 @@ function buildMarketSoldLink(queryParam, brandSlug) {
   return `https://reverb.com/marketplace?query=${q}&make=${make}&product_type=${CATEGORY_SLUG}&show_only_sold=true`;
 }
 
+// 2nd lowest after ignoring bottom outliers (so a few very-low listings don't skew Reverb Market Sold)
 function get2ndLowest(amounts) {
   const valid = amounts.filter((n) => Number.isFinite(n) && n > 0);
   if (valid.length < 2) return null;
   const sorted = [...valid].sort((a, b) => a - b);
-  return sorted[1];
+  const n = sorted.length;
+  const p10Index = Math.floor(n * 0.1);
+  const aboveP10 = p10Index > 0 ? sorted.slice(p10Index) : sorted;
+  if (aboveP10.length < 2) return aboveP10[0];
+  return aboveP10[1];
 }
 
 async function fetchMarketplaceSoldPrices(query, brandSlug, payloadTemplate, debug = false) {
@@ -143,6 +149,8 @@ async function main() {
   const debug = args.includes("--debug");
   const limitArg = args.find((a) => a.startsWith("--limit="));
   const limit = limitArg ? parseInt(limitArg.split("=")[1], 10) : null;
+  const concurrencyArg = args.find((a) => a.startsWith("--concurrency="));
+  const concurrency = Math.max(1, concurrencyArg ? parseInt(concurrencyArg.split("=")[1], 10) : DEFAULT_CONCURRENT);
 
   if (!MONGO_URI) {
     console.error("Set MONGO_URI in .env");
@@ -173,49 +181,53 @@ async function main() {
   const filter = { hasPriceGuide: true };
   let products = await Product.find(filter).lean();
   if (limit) products = products.slice(0, limit);
-  console.log(`Products to process: ${products.length} (dryRun=${dryRun})\n`);
+  console.log(`Products to process: ${products.length} (concurrency=${concurrency}, dryRun=${dryRun})\n`);
 
   let updated = 0;
   let failed = 0;
 
-  for (let i = 0; i < products.length; i++) {
-    const p = products[i];
+  async function processOne(p, index) {
     const brandSlug = slugifyBrand(p.brand);
     const searchQuery = (p.slug || p.title || "").trim().replace(/\s+/g, " ");
-    const label = p.title || p.slug || p.canonicalProductId || "?";
-
-    process.stdout.write(`[${i + 1}/${products.length}] ${label.slice(0, 50)}... `);
-
     const amounts = await fetchMarketplaceSoldPrices(
       searchQuery,
       brandSlug,
       payloadTemplate,
-      debug && i === 0
+      debug && index === 0
     );
     const secondLowest = get2ndLowest(amounts);
     const link = buildMarketSoldLink(searchQuery.replace(/\s+/g, "-"), brandSlug);
+    return { p, secondLowest, link, index };
+  }
 
-    if (secondLowest == null) {
-      console.log("no 2nd lowest");
-      failed++;
-    } else {
-      console.log(`2nd lowest = $${secondLowest.toFixed(2)}`);
-      if (!dryRun) {
-        await Product.updateOne(
-          { _id: p._id },
-          {
-            $set: {
-              reverbMarketSoldPrice: secondLowest,
-              reverbMarketSoldLink: link,
-              reverbMarketSoldLastUpdated: new Date(),
-            },
-          }
-        );
-        updated++;
+  for (let i = 0; i < products.length; i += concurrency) {
+    const chunk = products.slice(i, i + concurrency);
+    const results = await Promise.all(chunk.map((p, j) => processOne(p, i + j)));
+
+    for (const { p, secondLowest, link, index } of results) {
+      const label = (p.title || p.slug || p.canonicalProductId || "?").slice(0, 50);
+      if (secondLowest == null) {
+        console.log(`[${index + 1}/${products.length}] ${label}... no 2nd lowest`);
+        failed++;
+      } else {
+        console.log(`[${index + 1}/${products.length}] ${label}... $${secondLowest.toFixed(2)}`);
+        if (!dryRun) {
+          await Product.updateOne(
+            { _id: p._id },
+            {
+              $set: {
+                reverbMarketSoldPrice: secondLowest,
+                reverbMarketSoldLink: link,
+                reverbMarketSoldLastUpdated: new Date(),
+              },
+            }
+          );
+          updated++;
+        }
       }
     }
 
-    if (i < products.length - 1) {
+    if (i + concurrency < products.length) {
       await new Promise((r) => setTimeout(r, DELAY_MS));
     }
   }

@@ -440,6 +440,19 @@ def analyze_duplicates(df):
         return pd.DataFrame()  # Empty dataframe if no duplicates
 
 if __name__ == "__main__":
+    import sys
+
+    # Support --input path --output path for integration with the web tool
+    if len(sys.argv) >= 5 and sys.argv[1] == "--input" and sys.argv[3] == "--output":
+        input_path = Path(sys.argv[2])
+        output_path = Path(sys.argv[4])
+        if not input_path.exists():
+            print(f"Error: input file not found: {input_path}", file=sys.stderr)
+            sys.exit(1)
+        cleaned_df = clean_spreadsheet(str(input_path))
+        cleaned_df[["pedal_name", "condition", "price"]].to_csv(str(output_path), index=False)
+        sys.exit(0)
+
     print("Cleaning pedal pricing spreadsheet...")
     
     # Get the script directory and project root
