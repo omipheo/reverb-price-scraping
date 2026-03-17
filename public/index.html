@@ -143,7 +143,7 @@
                     <div class="modal-body">
                         <div id="authTabs" class="mb-3">
                             <button class="btn btn-sm btn-outline-primary active" onclick="switchAuthTab('login')">Login</button>
-                            <button class="btn btn-sm btn-outline-primary" onclick="switchAuthTab('register')">Register</button>
+                            <button class="btn btn-sm btn-outline-primary" id="registerTabBtn" onclick="switchAuthTab('register')" style="display: none;">Create user (admin only)</button>
                         </div>
                         <div id="loginForm">
                             <div class="mb-3">
@@ -169,7 +169,14 @@
                                 <label class="form-label">Password</label>
                                 <input type="password" class="form-control" id="registerPassword" required>
                             </div>
-                            <button class="btn btn-primary w-100" onclick="register()">Register</button>
+                            <div class="mb-3">
+                                <label class="form-label">Role</label>
+                                <select class="form-select" id="registerRole">
+                                    <option value="user">User (search only)</option>
+                                    <option value="admin">Admin (full access)</option>
+                                </select>
+                            </div>
+                            <button class="btn btn-primary w-100" onclick="register()">Create user</button>
                         </div>
                     </div>
                 </div>
@@ -348,12 +355,15 @@
         }
 
         function updateUIForLoggedIn(user) {
-            document.getElementById('userInfo').textContent = `Welcome, ${user.name}!`;
+            const roleLabel = (user && user.role === 'admin') ? 'Admin' : 'User';
+            document.getElementById('userInfo').textContent = `Welcome, ${user.name}! (${roleLabel})`;
             document.getElementById('userInfo').style.display = 'inline';
             document.getElementById('loginBtn').style.display = 'none';
             document.getElementById('logoutBtn').style.display = 'inline';
             document.getElementById('historySection').style.display = 'block';
             document.getElementById('historyPlaceholder').style.display = 'none';
+            const regBtn = document.getElementById('registerTabBtn');
+            if (regBtn) regBtn.style.display = (user.role === 'admin') ? 'inline-block' : 'none';
         }
 
         function updateUIForLoggedOut() {
@@ -363,6 +373,8 @@
             document.getElementById('historySection').style.display = 'none';
             document.getElementById('historyPlaceholder').style.display = 'block';
             currentUser = null;
+            const regBtn = document.getElementById('registerTabBtn');
+            if (regBtn) regBtn.style.display = 'none';
         }
 
         function showLoginModal() {
@@ -381,9 +393,10 @@
             } else {
                 document.getElementById('loginForm').style.display = 'none';
                 document.getElementById('registerForm').style.display = 'block';
-                document.getElementById('authModalTitle').textContent = 'Register';
+                document.getElementById('authModalTitle').textContent = 'Create user';
                 document.querySelectorAll('#authTabs button').forEach(btn => btn.classList.remove('active'));
-                document.querySelectorAll('#authTabs button')[1].classList.add('active');
+                const regBtn = document.getElementById('registerTabBtn');
+                if (regBtn) regBtn.classList.add('active');
             }
         }
 
@@ -395,6 +408,7 @@
                 const response = await fetch('/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({ email, password })
                 });
 
@@ -416,22 +430,26 @@
             const name = document.getElementById('registerName').value;
             const email = document.getElementById('registerEmail').value;
             const password = document.getElementById('registerPassword').value;
+            const roleEl = document.getElementById('registerRole');
+            const role = roleEl ? roleEl.value : 'user';
 
             try {
                 const response = await fetch('/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, email, password })
+                    credentials: 'include',
+                    body: JSON.stringify({ name, email, password, role })
                 });
 
                 const data = await response.json();
                 if (data.success) {
-                    currentUser = data.user;
-                    updateUIForLoggedIn(data.user);
                     bootstrap.Modal.getInstance(document.getElementById('authModal')).hide();
-                    alert('Registration successful!');
+                    alert('User created: ' + data.user.email);
+                    document.getElementById('registerName').value = '';
+                    document.getElementById('registerEmail').value = '';
+                    document.getElementById('registerPassword').value = '';
                 } else {
-                    alert('Registration failed: ' + (data.error || 'Unknown error'));
+                    alert('Create user failed: ' + (data.error || 'Unknown error'));
                 }
             } catch (error) {
                 alert('Error: ' + error.message);
@@ -570,6 +588,7 @@
                                     productId: r.productId || null,
                                     ptmBuyPrice: r.ptmBuyPrice != null ? r.ptmBuyPrice : null,
                                     ptmBuyPriceExpiresAt: r.ptmBuyPriceExpiresAt || null,
+                                    buyPrice: r.buyPrice != null ? r.buyPrice : null,
                                     ptmSellPrice: r.ptmSellPrice != null ? r.ptmSellPrice : null,
                                     ptmSellPriceExpiresAt: r.ptmSellPriceExpiresAt || null,
                                     noMatch: !!r.noMatch,
@@ -614,7 +633,9 @@
                     document.getElementById('resultsSection').style.display = 'block';
                 }
             } catch (error) {
-                console.error('Error loading calculation:', error);
+                const msg = 'Load calculation ' + calculationId + ': ' + error.message;
+                console.error('[' + new Date().toISOString() + '] ' + msg, error);
+                try { fetch('/api/log-client-error', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg, calculationId }) }); } catch (e) {}
                 alert('Error loading calculation: ' + error.message);
             }
         }
@@ -785,8 +806,9 @@
                                     <tr>
                                         <th>Input</th>
                                         <th>Matched product</th>
-                                        <th class="text-end">PTM Buy Price</th>
-                                        <th class="text-end">PTM Buy Exp</th>
+                                        <th class="text-end">Buy Price</th>
+                                        <th class="text-end">PTM FMV</th>
+                                        <th class="text-end">PTM FMV Exp</th>
                                         <th class="text-end">Reverb PG Hist Price</th>
                                         <th>Reverb PG Link</th>
                                         <th class="text-end">Reverb Market Sold Price</th>
@@ -803,26 +825,35 @@
                                 <tbody>
                                     ${personData.pedals.map((p, idx) => {
                                         const productId = (p.productId || '').replace(/'/g, "\\'");
-                                        const canEdit = !!p.productId;
-                                        const ptmVal = p.ptmBuyPrice != null ? p.ptmBuyPrice : '';
+                                        const canEdit = !!p.productId || !!p.noMatch || !p.matchedProduct;
+                                        const isAdmin = currentUser && currentUser.role === 'admin';
+                                        const canEditPrices = canEdit && isAdmin;
+                                        const fmvVal = p.ptmBuyPrice != null ? p.ptmBuyPrice : '';
                                         const expVal = p.ptmBuyPriceExpiresAt || '-';
                                         const sellVal = p.ptmSellPrice != null ? p.ptmSellPrice : '';
                                         const sellExpVal = p.ptmSellPriceExpiresAt || '-';
+                                        const buyFromFmv = (v) => { if (v == null || isNaN(v)) return null; const n = Number(v); if (n <= 59) return n - 20; if (n <= 119) return n * 0.35; if (n <= 199) return n * 0.30; return n * 0.25; };
+                                        const buyPriceVal = p.buyPrice != null ? p.buyPrice : (fmvVal !== '' ? buyFromFmv(parseFloat(fmvVal)) : '');
+                                        const buyPriceDisplay = buyPriceVal !== '' && buyPriceVal != null ? buyPriceVal : '';
                                         const rowId = 'ptm-row-' + personName.replace(/\s/g, '-') + '-' + idx;
                                         const calcId = currentCalculationId || '';
                                         const noMatch = !!p.noMatch;
                                         const partialMatch = !!p.partialMatch;
+                                        const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                                         const reverbPgHistPrice = p.reverbPgHistPrice != null ? '$' + p.reverbPgHistPrice.toFixed(2) : 'N/A';
                                         const reverbPgLink = p.reverbPgLink ? `<a href="${p.reverbPgLink}" target="_blank" class="btn btn-sm btn-link p-0">Link</a>` : '-';
                                         const reverbMarketSoldPrice = p.reverbMarketSoldPrice != null ? '$' + p.reverbMarketSoldPrice.toFixed(2) : 'N/A';
                                         const reverbMarketSoldLink = p.reverbMarketSoldLink ? `<a href="${p.reverbMarketSoldLink}" target="_blank" class="btn btn-sm btn-link p-0">Link</a>` : '-';
                                         const amtListed = p.amtListedOnReverbMarket != null ? p.amtListedOnReverbMarket : '-';
                                         return `
-                                        <tr data-product-id="${p.productId || ''}" data-row-id="${rowId}">
+                                        <tr data-product-id="${p.productId || ''}" data-row-id="${rowId}" data-person-name="${esc(personName)}" data-pedal="${esc(p.pedal)}">
                                             <td class="input-cell">${p.pedal || '-'}</td>
                                             <td>${p.matchedProduct || `<span class="no-match">${p.pedal} (No match)</span>`}</td>
                                             <td class="text-end">
-                                                ${canEdit ? `<input type="number" step="0.01" min="0" class="form-control form-control-sm d-inline-block" style="width:80px" value="${ptmVal}" id="ptm-buy-${rowId}" /> <button type="button" class="btn btn-sm btn-outline-primary ms-1" onclick="savePtmBuyPrice('${productId}', '${rowId}')">Save</button>` : '-'}
+                                                ${canEditPrices ? `<input type="number" step="0.01" min="0" class="form-control form-control-sm d-inline-block" style="width:80px" value="${buyPriceDisplay}" id="buy-price-${rowId}" /> <button type="button" class="btn btn-sm btn-outline-success ms-1" onclick="saveBuyPrice('${productId}', '${rowId}')">Save</button>` : (canEdit ? (buyPriceDisplay !== '' ? buyPriceDisplay : '-') : '-')}
+                                            </td>
+                                            <td class="text-end">
+                                                ${canEditPrices ? `<input type="number" step="0.01" min="0" class="form-control form-control-sm d-inline-block" style="width:80px" value="${fmvVal}" id="ptm-buy-${rowId}" /> <button type="button" class="btn btn-sm btn-outline-primary ms-1" onclick="savePtmBuyPrice('${productId}', '${rowId}')">Save</button>` : (canEdit ? (fmvVal !== '' ? fmvVal : '-') : '-')}
                                             </td>
                                             <td class="text-end" id="ptm-exp-${rowId}">${expVal}</td>
                                             <td class="text-end price-cell">${reverbPgHistPrice}</td>
@@ -831,17 +862,18 @@
                                             <td class="text-center">${reverbMarketSoldLink}</td>
                                             <td class="text-end">${amtListed}</td>
                                             <td class="text-end">
-                                                ${canEdit ? `<input type="number" step="0.01" min="0" class="form-control form-control-sm d-inline-block" style="width:80px" value="${sellVal}" id="ptm-sell-${rowId}" /> <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="savePtmSellPrice('${productId}', '${rowId}')">Save</button>` : '-'}
+                                                ${canEditPrices ? `<input type="number" step="0.01" min="0" class="form-control form-control-sm d-inline-block" style="width:80px" value="${sellVal}" id="ptm-sell-${rowId}" /> <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="savePtmSellPrice('${productId}', '${rowId}')">Save</button>` : (canEdit ? (sellVal !== '' ? sellVal : '-') : '-')}
                                             </td>
                                             <td class="text-end" id="ptm-sell-exp-${rowId}">${sellExpVal}</td>
-                                            <td class="text-center">${canEdit ? `<input type="checkbox" ${noMatch ? 'checked' : ''} onchange="savePedalFeedback('${productId}', '${calcId}', this.checked, document.getElementById('partial-${rowId}').checked)" id="nomatch-${rowId}" />` : '-'}</td>
-                                            <td class="text-center">${canEdit ? `<input type="checkbox" ${partialMatch ? 'checked' : ''} onchange="savePedalFeedback('${productId}', '${calcId}', document.getElementById('nomatch-${rowId}').checked, this.checked)" id="partial-${rowId}" />` : '-'}</td>
+                                            <td class="text-center">${canEdit ? `<input type="checkbox" ${noMatch ? 'checked' : ''} onchange="savePedalFeedback('${productId}', '${calcId}', this.checked, document.getElementById('partial-${rowId}').checked, '${rowId}')" id="nomatch-${rowId}" />` : '-'}</td>
+                                            <td class="text-center">${canEdit ? `<input type="checkbox" ${partialMatch ? 'checked' : ''} onchange="savePedalFeedback('${productId}', '${calcId}', document.getElementById('nomatch-${rowId}').checked, this.checked, '${rowId}')" id="partial-${rowId}" />` : '-'}</td>
                                             <td>${p.condition}</td>
                                             <td>${p.brand || '-'}</td>
                                         </tr>
                                     `}).join('')}
                                     <tr class="total-row">
                                         <td colspan="2"><strong>TOTAL</strong></td>
+                                        <td></td>
                                         <td colspan="2"></td>
                                         <td colspan="5"></td>
                                         <td class="text-end price-cell"><strong>$${personData.totalPrice.toFixed(2)}</strong></td>
@@ -849,6 +881,7 @@
                                     </tr>
                                     <tr class="offer-row">
                                         <td colspan="2"><strong>OFFER</strong></td>
+                                        <td></td>
                                         <td colspan="8"></td>
                                         <td class="text-end offer-cell"><strong>$${personData.totalOffer.toFixed(2)}</strong></td>
                                         <td colspan="5"></td>
@@ -916,7 +949,63 @@
             }
         }
 
-        // Save PTM Sell Price for a product (editable in results table)
+        // Buy Price from FMV: ≤59 → FMV−20; 60–119 → 35%; 120–199 → 30%; 200+ → 25%
+        function buyPriceFromFmv(fmv) {
+            if (fmv == null || isNaN(fmv)) return null;
+            const v = Number(fmv);
+            if (v <= 59) return v - 20;
+            if (v <= 119) return v * 0.35;
+            if (v <= 199) return v * 0.30;
+            return v * 0.25;
+        }
+
+        // Save Buy Price for a product. For no-match rows, creates a product first.
+        async function saveBuyPrice(productId, rowId) {
+            const input = document.getElementById('buy-price-' + rowId);
+            if (!input) return;
+            const raw = input.value.trim();
+            const buyPrice = raw === '' ? null : parseFloat(raw);
+            if (raw !== '' && (isNaN(buyPrice) || buyPrice < 0)) {
+                alert('Please enter a valid number (0 or greater) or leave empty.');
+                return;
+            }
+            let resolvedProductId = productId;
+            const row = document.querySelector('[data-row-id="' + rowId + '"]');
+            const personName = row ? (row.getAttribute('data-person-name') || '') : '';
+            const pedal = row ? (row.getAttribute('data-pedal') || '') : '';
+            if (!resolvedProductId && currentCalculationId && row) {
+                try {
+                    const r = await fetch('/api/calculations/' + currentCalculationId + '/ensure-no-match-product', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                        body: JSON.stringify({ personName, pedal })
+                    });
+                    const d = await r.json();
+                    if (d.productId) resolvedProductId = d.productId;
+                } catch (e) { console.error(e); }
+            }
+            if (!resolvedProductId) {
+                alert('Could not create product for this row.');
+                return;
+            }
+            try {
+                const body = { buyPrice: buyPrice != null ? buyPrice : null };
+                if (currentCalculationId) body.calculationId = currentCalculationId;
+                if (personName) body.personName = personName;
+                if (pedal) body.pedal = pedal;
+                const response = await fetch('/api/products/' + encodeURIComponent(resolvedProductId) + '/buy-price', {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include',
+                    body: JSON.stringify(body)
+                });
+                const data = await response.json();
+                if (data.success && !productId) loadCalculation(currentCalculationId);
+                else if (!data.success) alert('Save failed: ' + (data.error || 'Unknown error'));
+            } catch (err) {
+                console.error(err);
+                alert('Error saving: ' + err.message);
+            }
+        }
+
+        // Save PTM Sell Price for a product (editable in results table). For no-match rows, creates a product first.
         async function savePtmSellPrice(productId, rowId) {
             const input = document.getElementById('ptm-sell-' + rowId);
             if (!input) return;
@@ -926,8 +1015,30 @@
                 alert('Please enter a valid number (0 or greater) or leave empty.');
                 return;
             }
+            let resolvedProductId = productId;
+            if (!resolvedProductId && currentCalculationId) {
+                const row = document.querySelector('[data-row-id="' + rowId + '"]');
+                if (row) {
+                    const personName = row.getAttribute('data-person-name') || '';
+                    const pedal = row.getAttribute('data-pedal') || '';
+                    try {
+                        const r = await fetch('/api/calculations/' + currentCalculationId + '/ensure-no-match-product', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ personName, pedal })
+                        });
+                        const d = await r.json();
+                        if (d.productId) resolvedProductId = d.productId;
+                    } catch (e) { console.error(e); }
+                }
+            }
+            if (!resolvedProductId) {
+                alert('Could not create product for this row.');
+                return;
+            }
             try {
-                const response = await fetch('/api/products/' + encodeURIComponent(productId) + '/ptm-sell-price', {
+                const response = await fetch('/api/products/' + encodeURIComponent(resolvedProductId) + '/ptm-sell-price', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -943,30 +1054,44 @@
                 } else {
                     alert('Save failed: ' + (data.error || 'Unknown error'));
                 }
+                if (data.success && !productId) loadCalculation(currentCalculationId);
             } catch (err) {
                 console.error(err);
                 alert('Error saving: ' + err.message);
             }
         }
 
-        // Save match feedback (No Match? / Partial match?) for a pedal in current calculation
-        async function savePedalFeedback(productId, calculationId, noMatch, partialMatch) {
+        // Save match feedback (No Match? / Partial match?) for a pedal in current calculation.
+        // For no-match rows, pass rowId so we can send personName and pedal to create a product.
+        async function savePedalFeedback(productId, calculationId, noMatch, partialMatch, rowId) {
             if (!calculationId) return;
+            let body = { noMatch, partialMatch };
+            if (productId) {
+                body.productId = productId;
+            } else if (rowId) {
+                const row = document.querySelector('[data-row-id="' + rowId + '"]');
+                if (row) {
+                    body.personName = row.getAttribute('data-person-name') || '';
+                    body.pedal = row.getAttribute('data-pedal') || '';
+                }
+            }
+            if (!body.productId && !body.personName) return;
             try {
                 const response = await fetch('/api/calculations/' + calculationId + '/pedal-feedback', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ productId, noMatch, partialMatch })
+                    body: JSON.stringify(body)
                 });
                 const data = await response.json();
                 if (!data.success) alert('Could not save match feedback: ' + (data.error || 'Unknown error'));
+                else if (data.productId) loadCalculation(calculationId);
             } catch (err) {
                 console.error(err);
             }
         }
 
-        // Save PTM Buy Price for a product (editable in results table)
+        // Save PTM Buy Price for a product (editable in results table). For no-match rows, creates a product first.
         async function savePtmBuyPrice(productId, rowId) {
             const input = document.getElementById('ptm-buy-' + rowId);
             if (!input) return;
@@ -976,8 +1101,30 @@
                 alert('Please enter a valid number (0 or greater) or leave empty.');
                 return;
             }
+            let resolvedProductId = productId;
+            if (!resolvedProductId && currentCalculationId) {
+                const row = document.querySelector('[data-row-id="' + rowId + '"]');
+                if (row) {
+                    const personName = row.getAttribute('data-person-name') || '';
+                    const pedal = row.getAttribute('data-pedal') || '';
+                    try {
+                        const r = await fetch('/api/calculations/' + currentCalculationId + '/ensure-no-match-product', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ personName, pedal })
+                        });
+                        const d = await r.json();
+                        if (d.productId) resolvedProductId = d.productId;
+                    } catch (e) { console.error(e); }
+                }
+            }
+            if (!resolvedProductId) {
+                alert('Could not create product for this row.');
+                return;
+            }
             try {
-                const response = await fetch('/api/products/' + encodeURIComponent(productId) + '/ptm-buy-price', {
+                const response = await fetch('/api/products/' + encodeURIComponent(resolvedProductId) + '/ptm-buy-price', {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
@@ -993,6 +1140,7 @@
                 } else {
                     alert('Save failed: ' + (data.error || 'Unknown error'));
                 }
+                if (data.success && !productId) loadCalculation(currentCalculationId);
             } catch (err) {
                 console.error(err);
                 alert('Error saving: ' + err.message);

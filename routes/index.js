@@ -1,14 +1,22 @@
 const express = require("express");
 const router = express.Router();
 const requireAuth = require("../middleware/auth");
+const { requireAdmin } = require("../middleware/auth");
 const upload = require("../middleware/upload");
+const { log } = require("../middleware/requestLog");
 
-// Auth routes
+// Auth routes (only admin can register new users)
 const authController = require("../controllers/authController");
-router.post("/api/register", authController.register);
+router.post("/api/register", requireAuth, authController.register);
 router.post("/api/login", authController.login);
 router.post("/api/logout", authController.logout);
 router.get("/api/user", authController.getCurrentUser);
+router.post("/api/log-client-error", requireAuth, (req, res) => {
+  try {
+    log("CLIENT: " + (req.body && req.body.message ? req.body.message : JSON.stringify(req.body || {})), "error");
+  } catch (e) {}
+  res.status(200).json({ ok: true });
+});
 
 // Calculation routes
 const calculationController = require("../controllers/calculationController");
@@ -17,11 +25,13 @@ router.get("/api/calculations/:id", requireAuth, calculationController.getCalcul
 router.delete("/api/calculations", requireAuth, calculationController.deleteAllCalculations);
 router.delete("/api/calculations/:id", requireAuth, calculationController.deleteCalculation);
 router.patch("/api/calculations/:id/pedal-feedback", requireAuth, calculationController.updatePedalFeedback);
+router.post("/api/calculations/:id/ensure-no-match-product", requireAuth, calculationController.ensureNoMatchProduct);
 
-// Product routes
+// Product routes (pricing save is admin-only; checkboxes allowed for all)
 const productController = require("../controllers/productController");
-router.patch("/api/products/:productId/ptm-buy-price", requireAuth, productController.updatePtmBuyPrice);
-router.patch("/api/products/:productId/ptm-sell-price", requireAuth, productController.updatePtmSellPrice);
+router.patch("/api/products/:productId/ptm-buy-price", requireAuth, requireAdmin, productController.updatePtmBuyPrice);
+router.patch("/api/products/:productId/ptm-sell-price", requireAuth, requireAdmin, productController.updatePtmSellPrice);
+router.patch("/api/products/:productId/buy-price", requireAuth, requireAdmin, productController.updateBuyPrice);
 
 // User Pedal routes
 const pedalController = require("../controllers/pedalController");

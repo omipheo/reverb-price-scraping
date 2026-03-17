@@ -4,6 +4,7 @@ const path = require("path");
 const connectDB = require("./config/database");
 const configureSession = require("./config/session");
 const routes = require("./routes");
+const { requestLog } = require("./middleware/requestLog");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,9 @@ app.use(express.static(path.join(__dirname, "public")));
 
 // Session configuration
 app.use(configureSession(MONGO_URI, process.env.SESSION_SECRET));
+
+// Request/error logging (timestamped) for debugging e.g. "load calculation then disappeared"
+app.use(requestLog);
 
 // Routes
 app.use("/", routes);

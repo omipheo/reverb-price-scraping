@@ -41,9 +41,12 @@ const ProductSchema = new Schema({
     lastUpdated: { type: Date, default: Date.now },
   },
 
-  // PTM Buy Price (editable by user; 1-year expiration from set/update)
+  // PTM FMV (Fair Market Value; editable by user; 1-year expiration from set/update)
   ptmBuyPrice: { type: Number, default: null },
   ptmBuyPriceExpiresAt: { type: Date, default: null },
+
+  // Buy Price (calculated from FMV or user override; no expiration for now)
+  buyPrice: { type: Number, default: null },
 
   // PTM Sell Price (calculated; user can override; expiration only when user overrides)
   ptmSellPrice: { type: Number, default: null },

@@ -1,7 +1,22 @@
+// Shorthand expansions for search (user input -> search terms). Applied before normalization.
+const SHORTHAND_MAP = {
+  ehx: "electro harmonix", // matches "electro-harmonix" and "electro harmonix" after normalization
+};
+function expandShorthand(name) {
+  if (!name || typeof name !== "string") return name;
+  let out = name;
+  for (const [shorthand, expansion] of Object.entries(SHORTHAND_MAP)) {
+    const re = new RegExp("\\b" + shorthand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "gi");
+    out = out.replace(re, expansion);
+  }
+  return out;
+}
+
 // Utility: Normalize pedal name for matching
 // This should match the normalization used in scrape-monthly.js
 function normalizePedalName(name) {
-  return (name || "")
+  const withShorthand = expandShorthand(name || "");
+  return (withShorthand || "")
     .toLowerCase()
     .replace(/\b(excellent|very good|good|fair|poor|mint|b-stock|demo)\b/gi, " ")
     .replace(/\bcondition\b/gi, " ")
@@ -27,4 +42,5 @@ function normalizeCondition(condition) {
 module.exports = {
   normalizePedalName,
   normalizeCondition,
+  expandShorthand,
 };

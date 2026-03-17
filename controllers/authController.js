@@ -2,7 +2,10 @@ const User = require("../model/user.mdl");
 
 const register = async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    if (req.session.userRole !== "admin") {
+      return res.status(403).json({ error: "Only an admin can create new users" });
+    }
+    const { email, password, name, role } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: "Email, password, and name are required" });
@@ -14,21 +17,18 @@ const register = async (req, res) => {
       return res.status(400).json({ error: "User already exists" });
     }
 
-    // Create new user
-    const user = new User({ email, password, name });
+    const newRole = role === "admin" ? "admin" : "user";
+    const user = new User({ email, password, name, role: newRole });
     await user.save();
 
-    // Set session
-    req.session.userId = user._id;
-    req.session.userEmail = user.email;
-    req.session.userName = user.name;
-
+    // Admin stays logged in; do not set session to the new user
     res.json({
       success: true,
       user: {
         id: user._id,
         email: user.email,
         name: user.name,
+        role: user.role || "user",
       },
     });
   } catch (error) {
@@ -61,6 +61,7 @@ const login = async (req, res) => {
     req.session.userId = user._id;
     req.session.userEmail = user.email;
     req.session.userName = user.name;
+    req.session.userRole = user.role || "user";
 
     res.json({
       success: true,
@@ -68,6 +69,7 @@ const login = async (req, res) => {
         id: user._id,
         email: user.email,
         name: user.name,
+        role: req.session.userRole,
       },
     });
   } catch (error) {
@@ -85,14 +87,19 @@ const logout = (req, res) => {
   });
 };
 
-const getCurrentUser = (req, res) => {
+const getCurrentUser = async (req, res) => {
   if (!req.session.userId) {
     return res.status(401).json({ error: "Not authenticated" });
+  }
+  if (req.session.userRole === undefined) {
+    const user = await User.findById(req.session.userId).select("role");
+    req.session.userRole = user && user.role ? user.role : "user";
   }
   res.json({
     id: req.session.userId,
     email: req.session.userEmail,
     name: req.session.userName,
+    role: req.session.userRole,
   });
 };
 

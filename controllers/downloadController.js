@@ -36,7 +36,7 @@ const downloadExcel = async (req, res) => {
       }
 
       const rows = [
-        ["Person", "Pedal", "Condition", "Brand", "PTM Buy Price", "PTM Buy Exp", "Reverb PG Hist Price", "Reverb PG Link", "Reverb Market Sold Price", "Reverb Market Sold link", "Amt Listed", "PTM Sell Price", "PTM Sell Exp", "No Match?", "Partial match?", "FMV", "Offer"],
+        ["Person", "Pedal", "Condition", "Brand", "Buy Price", "PTM FMV", "PTM FMV Exp", "Reverb PG Hist Price", "Reverb PG Link", "Reverb Market Sold Price", "Reverb Market Sold link", "Amt Listed", "PTM Sell Price", "PTM Sell Exp", "No Match?", "Partial match?", "FMV", "Offer"],
       ];
 
       // Add pedal rows - use logged-in user's name instead of personName
@@ -46,6 +46,7 @@ const downloadExcel = async (req, res) => {
           pedal.matchedProduct || pedal.pedal || "",
           pedal.condition || "",
           pedal.brand || "",
+          pedal.buyPrice != null ? pedal.buyPrice : "",
           pedal.ptmBuyPrice != null ? pedal.ptmBuyPrice : "",
           pedal.ptmBuyPriceExpiresAt ? (typeof pedal.ptmBuyPriceExpiresAt === 'string' ? pedal.ptmBuyPriceExpiresAt.slice(0, 10) : pedal.ptmBuyPriceExpiresAt.toISOString().slice(0, 10)) : "",
           pedal.reverbPgHistPrice != null ? pedal.reverbPgHistPrice : "",
@@ -57,7 +58,7 @@ const downloadExcel = async (req, res) => {
           pedal.ptmSellPriceExpiresAt ? (typeof pedal.ptmSellPriceExpiresAt === 'string' ? pedal.ptmSellPriceExpiresAt.slice(0, 10) : pedal.ptmSellPriceExpiresAt.toISOString().slice(0, 10)) : "",
           pedal.noMatch ? "Yes" : "No",
           pedal.partialMatch ? "Yes" : "No",
-          pedal.ptmBuyPrice != null ? pedal.ptmBuyPrice : 0, // FMV is PTM Buy Price
+          pedal.ptmBuyPrice != null ? pedal.ptmBuyPrice : 0,
           pedal.offer || 0,
         ]);
       }
@@ -68,8 +69,9 @@ const downloadExcel = async (req, res) => {
         "TOTAL",
         "",
         "",
-        "", // PTM Buy Price
-        "", // PTM Buy Exp
+        "", // Buy Price
+        "", // PTM FMV
+        "", // PTM FMV Exp
         "", // Reverb PG Hist Price
         "", // Reverb PG Link
         "", // Reverb Market Sold Price
@@ -89,8 +91,9 @@ const downloadExcel = async (req, res) => {
         "OFFER",
         "",
         "",
-        "", // PTM Buy Price
-        "", // PTM Buy Exp
+        "", // Buy Price
+        "", // PTM FMV
+        "", // PTM FMV Exp
         "", // Reverb PG Hist Price
         "", // Reverb PG Link
         "", // Reverb Market Sold Price
@@ -123,7 +126,7 @@ const downloadExcel = async (req, res) => {
     // If multiple people, also create a combined sheet
     if (dataEntries.length > 1) {
       const combinedRows = [
-        ["Person", "Pedal", "Condition", "Brand", "PTM Buy Price", "PTM Buy Exp", "Reverb PG Hist Price", "Reverb PG Link", "Reverb Market Sold Price", "Reverb Market Sold link", "Amt Listed", "PTM Sell Price", "PTM Sell Exp", "No Match?", "Partial match?", "FMV", "Offer"],
+        ["Person", "Pedal", "Condition", "Brand", "Buy Price", "PTM FMV", "PTM FMV Exp", "Reverb PG Hist Price", "Reverb PG Link", "Reverb Market Sold Price", "Reverb Market Sold link", "Amt Listed", "PTM Sell Price", "PTM Sell Exp", "No Match?", "Partial match?", "FMV", "Offer"],
       ];
 
       for (const [personName, personData] of dataEntries) {
@@ -138,6 +141,7 @@ const downloadExcel = async (req, res) => {
             pedal.matchedProduct || pedal.pedal || "",
             pedal.condition || "",
             pedal.brand || "",
+            pedal.buyPrice != null ? pedal.buyPrice : "",
             pedal.ptmBuyPrice != null ? pedal.ptmBuyPrice : "",
             pedal.ptmBuyPriceExpiresAt ? (typeof pedal.ptmBuyPriceExpiresAt === 'string' ? pedal.ptmBuyPriceExpiresAt.slice(0, 10) : pedal.ptmBuyPriceExpiresAt.toISOString().slice(0, 10)) : "",
             pedal.reverbPgHistPrice != null ? pedal.reverbPgHistPrice : "",
@@ -158,8 +162,9 @@ const downloadExcel = async (req, res) => {
           "TOTAL",
           "",
           "",
-          "", // PTM Buy Price
-          "", // PTM Buy Exp
+          "", // Buy Price
+          "", // PTM FMV
+          "", // PTM FMV Exp
           "", // Reverb PG Hist Price
           "", // Reverb PG Link
           "", // Reverb Market Sold Price
@@ -177,8 +182,9 @@ const downloadExcel = async (req, res) => {
           "OFFER",
           "",
           "",
-          "", // PTM Buy Price
-          "", // PTM Buy Exp
+          "", // Buy Price
+          "", // PTM FMV
+          "", // PTM FMV Exp
           "", // Reverb PG Hist Price
           "", // Reverb PG Link
           "", // Reverb Market Sold Price
