@@ -212,6 +212,11 @@
             overflow: hidden;
             opacity: 0;
         }
+        .history-sidebar .list-group-item.calculation-selected {
+            background: rgba(255,255,255,0.18) !important;
+            border-color: rgba(255,255,255,0.28) !important;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2);
+        }
         .main-content {
             width: 66.666%;
             flex: 1;
@@ -676,7 +681,7 @@
                     historyList.innerHTML = `
                         <div class="list-group">
                             ${data.calculations.map(calc => `
-                                <div class="list-group-item" style="margin-bottom: 8px; border-radius: 8px;">
+                                <div class="list-group-item ${calc._id === currentCalculationId ? 'calculation-selected' : ''}" style="margin-bottom: 8px; border-radius: 8px;">
                                     <div class="d-flex w-100 justify-content-between align-items-start">
                                         <div class="flex-grow-1" style="cursor: pointer;" onclick="loadCalculation('${calc._id}')">
                                             <h6 class="mb-1">${calc.title}</h6>
@@ -828,6 +833,7 @@
                     currentCalculationId = calculationId;
                     displayResults(results, Object.keys(results).length > 1);
                     document.getElementById('resultsSection').style.display = 'block';
+                    await loadCalculationHistory();
                 }
             } catch (error) {
                 const msg = 'Load calculation ' + calculationId + ': ' + error.message;
