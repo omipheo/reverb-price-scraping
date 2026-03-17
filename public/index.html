@@ -8,18 +8,64 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <style>
         body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background:
+                radial-gradient(1200px 700px at 15% 10%, rgba(255,255,255,0.10), transparent 55%),
+                radial-gradient(900px 600px at 85% 20%, rgba(120,120,255,0.12), transparent 60%),
+                radial-gradient(900px 700px at 40% 95%, rgba(255,255,255,0.08), transparent 55%),
+                linear-gradient(180deg, #262b21 0%, #1b2b3b 35%, #001a05 100%);
             min-height: 100vh;
             padding: 20px;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: rgba(255, 255, 255, 0.92);
         }
         .container {
             max-width: 1400px;
-            background: white;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.06) 100%);
             border-radius: 15px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            box-shadow:
+                0 30px 90px rgba(0,0,0,0.60),
+                inset 0 1px 0 rgba(255,255,255,0.22);
             padding: 30px;
             margin-top: 20px;
+            border: 1px solid rgba(255,255,255,0.12);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+        }
+        /* subtle “mirror” sheen */
+        .container::before {
+            content: "";
+            position: absolute;
+            inset: -40% -20% auto -20%;
+            height: 70%;
+            background: linear-gradient(120deg,
+                rgba(255,255,255,0.22) 0%,
+                rgba(255,255,255,0.06) 30%,
+                rgba(255,255,255,0.00) 55%);
+            transform: rotate(-6deg);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .container::after {
+            content: "";
+            position: absolute;
+            left: 6%;
+            right: 6%;
+            bottom: -14px;
+            height: 14px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+            filter: blur(6px);
+            opacity: 0.35;
+            pointer-events: none;
+            z-index: 0;
+        }
+        /* Ensure content sits above the sheen layers */
+        .container > * {
+            position: relative;
+            z-index: 1;
         }
         .main-layout {
             display: flex;
@@ -29,12 +75,134 @@
         .history-sidebar {
             width: 33.333%;
             min-width: 300px;
-            background: #f8f9fa;
+            background: rgba(255,255,255,0.09);
             border-radius: 10px;
             padding: 20px;
             overflow-y: auto;
             max-height: calc(100vh - 200px);
             transition: width 0.2s ease, min-width 0.2s ease, margin 0.2s ease, opacity 0.2s ease;
+            border: 1px solid rgba(255,255,255,0.10);
+        }
+        /* Improve sidebar readability on dark theme */
+        .history-sidebar h5,
+        .history-sidebar p,
+        .history-sidebar small,
+        #historyPlaceholder {
+            color: rgba(255,255,255,0.88) !important;
+        }
+        #historyPlaceholder.text-muted,
+        .history-sidebar .text-muted,
+        .input-section .text-muted {
+            color: rgba(255,255,255,0.70) !important;
+        }
+        #historyPlaceholder i.bi {
+            opacity: 0.85 !important;
+            color: rgba(255,255,255,0.75) !important;
+        }
+        /* Tabs and form labels on dark */
+        .nav-tabs {
+            border-bottom-color: rgba(255,255,255,0.12);
+        }
+        .nav-tabs .nav-link {
+            color: rgba(255,255,255,0.80);
+            border-color: transparent;
+        }
+        .nav-tabs .nav-link:hover {
+            color: rgba(255,255,255,0.92);
+            background: rgba(255,255,255,0.06);
+        }
+        .nav-tabs .nav-link.active {
+            color: rgba(255,255,255,0.92);
+            background: rgba(255,255,255,0.10);
+            border-color: rgba(255,255,255,0.12);
+        }
+        .form-label {
+            color: rgba(255,255,255,0.88);
+        }
+        /* Modal (login/create-user) should be fully readable/typable in dark theme */
+        .modal {
+            z-index: 2000;
+        }
+        .modal-backdrop {
+            z-index: 1990;
+            opacity: 0.80 !important;
+            pointer-events: none; /* ensure backdrop never blocks typing/clicks */
+        }
+        .modal .modal-content {
+            /* Match home page dark “mirror/glass” style, but keep it crisp */
+            background: linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.08) 100%);
+            border: 1px solid rgba(255,255,255,0.18);
+            box-shadow:
+                0 50px 160px rgba(0,0,0,0.82),
+                inset 0 1px 0 rgba(255,255,255,0.16);
+            color: rgba(255,255,255,0.95);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            filter: none !important;
+        }
+        .modal-dialog {
+            max-width: 560px;
+        }
+        .modal-dialog-centered { min-height: calc(100% - 2rem); }
+        .modal.show .modal-dialog { transform: none; }
+        .modal .modal-dialog {
+            pointer-events: auto;
+        }
+        .modal .modal-title {
+            color: rgba(255,255,255,0.96);
+            font-weight: 800;
+            letter-spacing: 0.2px;
+        }
+        .modal .btn-primary {
+            background: linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.08) 100%);
+            color: rgba(255,255,255,0.96);
+            border: 1px solid rgba(255,255,255,0.14);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.18);
+        }
+        .modal .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 14px 34px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.24);
+        }
+        .modal .modal-header {
+            border-bottom-color: rgba(255,255,255,0.12);
+        }
+        .modal .modal-footer {
+            border-top-color: rgba(255,255,255,0.12);
+        }
+        .modal .btn-close {
+            filter: invert(1) grayscale(1);
+            opacity: 0.9;
+        }
+        .modal .modal-body {
+            color: rgba(255,255,255,0.90);
+        }
+        .modal .form-label {
+            color: rgba(255,255,255,0.90);
+            font-weight: 650;
+        }
+        .modal .form-control,
+        .modal .form-select {
+            background: rgba(0,0,0,0.28);
+            border-color: rgba(255,255,255,0.16);
+            color: rgba(255,255,255,0.95);
+        }
+        .modal .form-control:disabled,
+        .modal .form-select:disabled {
+            background: rgba(255,255,255,0.10);
+            color: rgba(255,255,255,0.70);
+        }
+        .modal .form-control:focus,
+        .modal .form-select:focus {
+            background: rgba(0,0,0,0.34);
+            border-color: rgba(255,255,255,0.28);
+            box-shadow: 0 0 0 0.22rem rgba(255,255,255,0.12);
+            color: rgba(255,255,255,0.96);
+        }
+        .modal .form-control::placeholder {
+            color: rgba(255,255,255,0.58);
+        }
+        .modal .small.text-muted {
+            color: rgba(255,255,255,0.72) !important;
         }
         .history-sidebar.hidden {
             width: 0;
@@ -53,35 +221,52 @@
             width: 100%;
         }
         h1 {
-            color: #667eea;
+            color: rgba(255,255,255,0.92);
             margin-bottom: 30px;
             font-weight: 700;
+            letter-spacing: 0.3px;
         }
         .input-section {
-            background: #f8f9fa;
+            background: rgba(255,255,255,0.06);
             padding: 25px;
             border-radius: 10px;
             margin-bottom: 30px;
+            border: 1px solid rgba(255,255,255,0.10);
         }
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, rgba(255,255,255,0.14) 0%, rgba(255,255,255,0.06) 100%);
             border: none;
             padding: 12px 30px;
             border-radius: 8px;
             font-weight: 600;
+            color: rgba(255,255,255,0.92);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.18);
         }
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.20);
+        }
+        .btn-outline-primary, .btn-outline-secondary, .btn-outline-danger {
+            border-color: rgba(255,255,255,0.22);
+            color: rgba(255,255,255,0.88);
+        }
+        .btn-outline-primary:hover, .btn-outline-secondary:hover, .btn-outline-danger:hover {
+            background: rgba(255,255,255,0.10);
+            border-color: rgba(255,255,255,0.28);
+            color: rgba(255,255,255,0.92);
         }
         .results-section {
             margin-top: 30px;
         }
         .table {
-            background: white;
+            background: rgba(0,0,0,0.15);
+            color: rgba(255,255,255,0.90);
+        }
+        .table td, .table th {
+            border-color: rgba(255,255,255,0.08);
         }
         .table thead {
-            background: #667eea;
+            background: rgba(255,255,255,0.10);
             color: white;
         }
         .price-cell {
@@ -94,11 +279,11 @@
             font-size: 1.1em;
         }
         .total-row {
-            background: #e3f2fd !important;
+            background: rgba(120, 170, 255, 0.10) !important;
             font-weight: 700;
         }
         .offer-row {
-            background: #f3e5f5 !important;
+            background: rgba(200, 120, 255, 0.10) !important;
             font-weight: 700;
         }
         .no-match {
@@ -124,61 +309,11 @@
                 <button class="btn btn-outline-secondary btn-sm" id="historyToggleBtn" onclick="toggleHistorySidebar()" title="Show or hide calculation history">
                     <i class="bi bi-clock-history" id="historyToggleIcon"></i> <span id="historyToggleLabel">Hide History</span>
                 </button>
-                <div id="userSection">
-                    <span id="userInfo" class="me-3" style="display: none;"></span>
+                <div id="userSection" class="d-flex align-items-center gap-2">
+                    <span id="userInfo" class="me-2" style="display: none;"></span>
+                    <button class="btn btn-success btn-sm" onclick="showCreateUserModal()" id="createUserBtn" style="display: none;" title="Create a new user (Admin only)">Create user</button>
                     <button class="btn btn-outline-primary" onclick="showLoginModal()" id="loginBtn">Login</button>
                     <button class="btn btn-outline-danger" onclick="logout()" id="logoutBtn" style="display: none;">Logout</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Login/Register Modal -->
-        <div class="modal fade" id="authModal" tabindex="-1">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="authModalTitle">Login</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div id="authTabs" class="mb-3">
-                            <button class="btn btn-sm btn-outline-primary active" onclick="switchAuthTab('login')">Login</button>
-                            <button class="btn btn-sm btn-outline-primary" id="registerTabBtn" onclick="switchAuthTab('register')" style="display: none;">Create user (admin only)</button>
-                        </div>
-                        <div id="loginForm">
-                            <div class="mb-3">
-                                <label class="form-label">Email</label>
-                                <input type="email" class="form-control" id="loginEmail" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Password</label>
-                                <input type="password" class="form-control" id="loginPassword" required>
-                            </div>
-                            <button class="btn btn-primary w-100" onclick="login()">Login</button>
-                        </div>
-                        <div id="registerForm" style="display: none;">
-                            <div class="mb-3">
-                                <label class="form-label">Name</label>
-                                <input type="text" class="form-control" id="registerName" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Email</label>
-                                <input type="email" class="form-control" id="registerEmail" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Password</label>
-                                <input type="password" class="form-control" id="registerPassword" required>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Role</label>
-                                <select class="form-select" id="registerRole">
-                                    <option value="user">User (search only)</option>
-                                    <option value="admin">Admin (full access)</option>
-                                </select>
-                            </div>
-                            <button class="btn btn-primary w-100" onclick="register()">Create user</button>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -197,7 +332,7 @@
                     <div id="historyList"></div>
                 </div>
                 <div id="historyPlaceholder" class="text-center text-muted" style="padding: 40px 0;">
-                    <i class="bi bi-clock-history" style="font-size: 3rem; opacity: 0.3;"></i>
+                    <i class="bi bi-clock-history" style="font-size: 3rem;"></i>
                     <p class="mt-3">Login to see your calculation history</p>
                 </div>
             </div>
@@ -289,6 +424,58 @@
         </div>
     </div>
 
+    <!-- Login/Register Modal (placed outside .container so it never inherits glass/opacity effects) -->
+    <div class="modal fade" id="authModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="authModalTitle">Login</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="authTabs" class="mb-3">
+                        <button class="btn btn-sm btn-outline-primary active" onclick="switchAuthTab('login')">Login</button>
+                        <button class="btn btn-sm btn-outline-primary" id="registerTabBtn" onclick="switchAuthTab('register')" style="display: none;">Create user (admin only)</button>
+                    </div>
+                    <div id="loginForm">
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="loginEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" id="loginPassword" required>
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="login()">Login</button>
+                        <p class="small text-muted mt-2 mb-0">New user? An admin must create your account first; then you can log in here.</p>
+                    </div>
+                    <div id="registerForm" style="display: none;">
+                        <div class="mb-3">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" id="registerName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="registerEmail" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" id="registerPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Role</label>
+                            <select class="form-select" id="registerRole">
+                                <option value="user">User (search only)</option>
+                                <option value="admin">Admin (full access)</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="register()">Create user</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const HISTORY_VISIBLE_KEY = 'fmvCalculator_historyVisible';
@@ -360,6 +547,8 @@
             document.getElementById('userInfo').style.display = 'inline';
             document.getElementById('loginBtn').style.display = 'none';
             document.getElementById('logoutBtn').style.display = 'inline';
+            const createUserBtn = document.getElementById('createUserBtn');
+            if (createUserBtn) createUserBtn.style.display = (user.role === 'admin') ? 'inline-block' : 'none';
             document.getElementById('historySection').style.display = 'block';
             document.getElementById('historyPlaceholder').style.display = 'none';
             const regBtn = document.getElementById('registerTabBtn');
@@ -370,6 +559,8 @@
             document.getElementById('userInfo').style.display = 'none';
             document.getElementById('loginBtn').style.display = 'inline';
             document.getElementById('logoutBtn').style.display = 'none';
+            const createUserBtn = document.getElementById('createUserBtn');
+            if (createUserBtn) createUserBtn.style.display = 'none';
             document.getElementById('historySection').style.display = 'none';
             document.getElementById('historyPlaceholder').style.display = 'block';
             currentUser = null;
@@ -380,6 +571,12 @@
         function showLoginModal() {
             const modal = new bootstrap.Modal(document.getElementById('authModal'));
             switchAuthTab('login');
+            modal.show();
+        }
+
+        function showCreateUserModal() {
+            const modal = new bootstrap.Modal(document.getElementById('authModal'));
+            switchAuthTab('register');
             modal.show();
         }
 
