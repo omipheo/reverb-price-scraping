@@ -251,14 +251,27 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.20);
         }
-        .btn-outline-primary, .btn-outline-secondary, .btn-outline-danger {
+        .btn-outline-primary, .btn-outline-secondary, .btn-outline-danger, .btn-outline-success {
             border-color: rgba(255,255,255,0.22);
             color: rgba(255,255,255,0.88);
         }
-        .btn-outline-primary:hover, .btn-outline-secondary:hover, .btn-outline-danger:hover {
+        .btn-outline-primary:hover, .btn-outline-secondary:hover, .btn-outline-danger:hover, .btn-outline-success:hover {
             background: rgba(255,255,255,0.10);
             border-color: rgba(255,255,255,0.28);
             color: rgba(255,255,255,0.92);
+        }
+        /* Ensure in-table Save buttons are visible on dark theme */
+        .results-table .btn-outline-success,
+        .results-table .btn-outline-primary,
+        .results-table .btn-outline-secondary {
+            background: rgba(0,0,0,0.35);
+            border-color: rgba(255,255,255,0.28);
+            color: rgba(255,255,255,0.92);
+        }
+        .results-table .btn-outline-success:hover,
+        .results-table .btn-outline-primary:hover,
+        .results-table .btn-outline-secondary:hover {
+            background: rgba(0,0,0,0.50);
         }
         .results-section {
             margin-top: 30px;
