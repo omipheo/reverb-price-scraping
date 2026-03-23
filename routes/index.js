@@ -4,6 +4,8 @@ const requireAuth = require("../middleware/auth");
 const { requireAdmin } = require("../middleware/auth");
 const upload = require("../middleware/upload");
 const { log } = require("../middleware/requestLog");
+const { requireSettingsUnlocked } = require("../middleware/settingsAuth");
+const adminSettingsController = require("../controllers/adminSettingsController");
 
 // Auth routes (only admin can register new users)
 const authController = require("../controllers/authController");
@@ -26,6 +28,49 @@ router.delete("/api/calculations", requireAuth, calculationController.deleteAllC
 router.delete("/api/calculations/:id", requireAuth, calculationController.deleteCalculation);
 router.patch("/api/calculations/:id/pedal-feedback", requireAuth, calculationController.updatePedalFeedback);
 router.post("/api/calculations/:id/ensure-no-match-product", requireAuth, calculationController.ensureNoMatchProduct);
+
+// Admin Settings routes (per-admin settings password)
+router.post(
+  "/api/admin/settings/unlock",
+  requireAuth,
+  requireAdmin,
+  adminSettingsController.unlockSettings
+);
+router.post(
+  "/api/admin/settings/password",
+  requireAuth,
+  requireAdmin,
+  requireSettingsUnlocked,
+  adminSettingsController.changeSettingsPassword
+);
+router.get(
+  "/api/admin/users",
+  requireAuth,
+  requireAdmin,
+  requireSettingsUnlocked,
+  adminSettingsController.listUsers
+);
+router.post(
+  "/api/admin/users",
+  requireAuth,
+  requireAdmin,
+  requireSettingsUnlocked,
+  adminSettingsController.createUser
+);
+router.patch(
+  "/api/admin/users/:id",
+  requireAuth,
+  requireAdmin,
+  requireSettingsUnlocked,
+  adminSettingsController.updateUser
+);
+router.delete(
+  "/api/admin/users/:id",
+  requireAuth,
+  requireAdmin,
+  requireSettingsUnlocked,
+  adminSettingsController.deleteUser
+);
 
 // Product routes (pricing save is admin-only; checkboxes allowed for all)
 const productController = require("../controllers/productController");

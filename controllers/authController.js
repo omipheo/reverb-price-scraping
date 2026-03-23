@@ -18,7 +18,8 @@ const register = async (req, res) => {
     }
 
     const newRole = role === "admin" ? "admin" : "user";
-    const user = new User({ email, password, name, role: newRole });
+    const settingsPassword = newRole === "admin" ? "1234" : null;
+    const user = new User({ email, password, name, role: newRole, settingsPassword });
     await user.save();
 
     // Admin stays logged in; do not set session to the new user
