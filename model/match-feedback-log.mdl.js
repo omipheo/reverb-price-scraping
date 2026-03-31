@@ -9,6 +9,7 @@ const MatchFeedbackLogSchema = new Schema({
   productId: { type: String, default: "" }, // canonicalProductId if any
   noMatch: { type: Boolean, default: false },
   partialMatch: { type: Boolean, default: false },
+  matchNotes: { type: String, default: "" }, // "What matched & what didn't?" free-text notes
   createdAt: { type: Date, default: Date.now, index: true },
 }, { strict: true });
 

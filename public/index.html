@@ -1407,6 +1407,7 @@
                                         <th class="text-center">Sell Exp</th>
                                         <th class="text-center">No Match?</th>
                                         <th class="text-center">Partial match?</th>
+                                        <th class="text-center">What matched &amp; what didn't?</th>
                                         <th class="text-center">Condition</th>
                                         <th class="text-center">Brand</th>
                                     </tr>
@@ -1421,7 +1422,19 @@
                                         const expVal = p.ptmBuyPriceExpiresAt || '-';
                                         const sellVal = p.ptmSellPrice != null ? p.ptmSellPrice : '';
                                         const sellExpVal = p.ptmSellPriceExpiresAt || '-';
-                                        const buyFromFmv = (v) => { if (v == null || isNaN(v)) return null; const n = Number(v); if (n <= 59) return n - 20; if (n <= 119) return n * 0.35; if (n <= 199) return n * 0.30; return n * 0.25; };
+                                        // Buy Price from FMV:
+                                        // < $60 => FMV - 20
+                                        // $60 - $120 => FMV - 35% (keep 65%)
+                                        // $120 - $199 => FMV - 30% (keep 70%)
+                                        // $200+ => FMV - 25% (keep 75%)
+                                        const buyFromFmv = (v) => {
+                                            if (v == null || isNaN(v)) return null;
+                                            const n = Number(v);
+                                            if (n < 60) return n - 20;
+                                            if (n <= 120) return n * 0.65;
+                                            if (n <= 199) return n * 0.70;
+                                            return n * 0.75;
+                                        };
                                         const buyPriceVal = p.buyPrice != null ? p.buyPrice : (fmvVal !== '' ? buyFromFmv(parseFloat(fmvVal)) : '');
                                         const buyPriceDisplay = buyPriceVal !== '' && buyPriceVal != null ? buyPriceVal : '';
                                         const rowId = 'ptm-row-' + personName.replace(/\s/g, '-') + '-' + idx;
@@ -1429,6 +1442,7 @@
                                         const noMatch = !!p.noMatch;
                                         const partialMatch = !!p.partialMatch;
                                         const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                                        const matchNotesVal = esc(p.matchNotes || '');
                                         const reverbPgHistPrice = p.reverbPgHistPrice != null ? '$' + p.reverbPgHistPrice.toFixed(2) : 'N/A';
                                         const reverbPgLink = p.reverbPgLink ? `<a href="${p.reverbPgLink}" target="_blank" class="btn btn-sm btn-link p-0">Link</a>` : '-';
                                         const reverbMarketSoldPrice = p.reverbMarketSoldPrice != null ? '$' + p.reverbMarketSoldPrice.toFixed(2) : 'N/A';
@@ -1456,6 +1470,9 @@
                                             <td class="text-end" id="ptm-sell-exp-${rowId}">${sellExpVal}</td>
                                             <td class="text-center">${canEdit ? `<input type="checkbox" ${noMatch ? 'checked' : ''} onchange="savePedalFeedback('${productId}', '${calcId}', this.checked, document.getElementById('partial-${rowId}').checked, '${rowId}')" id="nomatch-${rowId}" />` : '-'}</td>
                                             <td class="text-center">${canEdit ? `<input type="checkbox" ${partialMatch ? 'checked' : ''} onchange="savePedalFeedback('${productId}', '${calcId}', document.getElementById('nomatch-${rowId}').checked, this.checked, '${rowId}')" id="partial-${rowId}" />` : '-'}</td>
+                                            <td>
+                                                ${canEdit ? `<input type="text" class="form-control form-control-sm d-inline-block" style="width:220px" value="${matchNotesVal}" id="notes-${rowId}" onchange="savePedalFeedback('${productId}', '${calcId}', document.getElementById('nomatch-${rowId}').checked, document.getElementById('partial-${rowId}').checked, '${rowId}')" placeholder="Notes" />` : '-'}
+                                            </td>
                                             <td>${p.condition}</td>
                                             <td>${p.brand || '-'}</td>
                                         </tr>
@@ -1538,14 +1555,18 @@
             }
         }
 
-        // Buy Price from FMV: ≤59 → FMV−20; 60–119 → 35%; 120–199 → 30%; 200+ → 25%
+        // Buy Price from FMV:
+        // < $60 => FMV - 20
+        // $60 - $120 => FMV - 35% (keep 65%)
+        // $120 - $199 => FMV - 30% (keep 70%)
+        // $200+ => FMV - 25% (keep 75%)
         function buyPriceFromFmv(fmv) {
             if (fmv == null || isNaN(fmv)) return null;
             const v = Number(fmv);
-            if (v <= 59) return v - 20;
-            if (v <= 119) return v * 0.35;
-            if (v <= 199) return v * 0.30;
-            return v * 0.25;
+            if (v < 60) return v - 20;
+            if (v <= 120) return v * 0.65;
+            if (v <= 199) return v * 0.70;
+            return v * 0.75;
         }
 
         // Save Buy Price for a product. For no-match rows, creates a product first.
@@ -1655,6 +1676,10 @@
         async function savePedalFeedback(productId, calculationId, noMatch, partialMatch, rowId) {
             if (!calculationId) return;
             let body = { noMatch, partialMatch };
+            if (rowId) {
+                const notesEl = document.getElementById('notes-' + rowId);
+                body.matchNotes = notesEl ? notesEl.value.trim() : '';
+            }
             if (productId) {
                 body.productId = productId;
             } else if (rowId) {
