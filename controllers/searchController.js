@@ -56,6 +56,7 @@ const searchPedals = async (req, res) => {
             ptmSellPriceExpiresAt: sellExpStr,
             noMatch: false,
             partialMatch: false,
+            matchNotes: "",
           });
         } else {
           results.push({
@@ -78,6 +79,7 @@ const searchPedals = async (req, res) => {
             ptmSellPriceExpiresAt: sellExpStr,
             noMatch: false,
             partialMatch: false,
+            matchNotes: "",
           });
         }
       } else {
@@ -101,6 +103,7 @@ const searchPedals = async (req, res) => {
           ptmSellPriceExpiresAt: null,
           noMatch: true,
           partialMatch: false,
+          matchNotes: "",
         });
       }
     }
@@ -140,6 +143,7 @@ const searchPedals = async (req, res) => {
           ptmSellPriceExpiresAt: r.ptmSellPriceExpiresAt,
           noMatch: r.noMatch || false,
           partialMatch: r.partialMatch || false,
+          matchNotes: r.matchNotes || "",
         })),
         totalPrice,
         totalOffer,

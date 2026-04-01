@@ -256,6 +256,7 @@ const uploadFile = async (req, res) => {
               ptmSellPriceExpiresAt: sellExpStr,
               noMatch: false,
               partialMatch: false,
+              matchNotes: "",
             });
           } else {
             pedalResults.push({
@@ -279,6 +280,7 @@ const uploadFile = async (req, res) => {
               ptmSellPriceExpiresAt: sellExpStr,
               noMatch: false,
               partialMatch: false,
+              matchNotes: "",
             });
           }
         } else {
@@ -303,6 +305,7 @@ const uploadFile = async (req, res) => {
             ptmSellPriceExpiresAt: null,
             noMatch: true,
             partialMatch: false,
+            matchNotes: "",
           });
         }
       }
