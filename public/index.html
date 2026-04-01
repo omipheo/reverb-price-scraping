@@ -1631,19 +1631,42 @@
                                         </tr>
                                     `}).join('')}
                                     <tr class="total-row">
-                                        <td colspan="2"><strong>TOTAL</strong></td>
+                                        <td><strong>Total FMV</strong></td>
                                         <td></td>
-                                        <td colspan="2"></td>
-                                        <td colspan="5"></td>
-                                        <td class="text-end price-cell"><strong>$${personData.totalPrice.toFixed(2)}</strong></td>
-                                        <td colspan="6"></td>
+                                        <td></td>
+                                        <td class="text-end price-cell"><strong>$${Number(personData.totalPrice || 0).toFixed(2)}</strong></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
                                     </tr>
                                     <tr class="offer-row">
-                                        <td colspan="2"><strong>OFFER</strong></td>
+                                        <td><strong>Offer</strong></td>
                                         <td></td>
-                                        <td colspan="8"></td>
-                                        <td class="text-end offer-cell"><strong>$${personData.totalOffer.toFixed(2)}</strong></td>
-                                        <td colspan="5"></td>
+                                        <td class="text-end offer-cell"><strong>$${Number(personData.totalOffer || 0).toFixed(2)}</strong></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
+                                        <td></td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -1713,6 +1736,34 @@
             return computeBuyPriceFromRules(fmv, buyPriceRules);
         }
 
+        function findCurrentResultRow(rowId) {
+            const rowEl = document.querySelector('[data-row-id="' + rowId + '"]');
+            if (!rowEl || !currentResults) return null;
+            const personName = rowEl.getAttribute('data-person-name') || '';
+            const pedal = rowEl.getAttribute('data-pedal') || '';
+            const personData = currentResults[personName];
+            if (!personData || !Array.isArray(personData.pedals)) return null;
+            const row = personData.pedals.find((p) => (p.pedal || '') === pedal);
+            if (!row) return null;
+            return { personName, pedal, personData, row };
+        }
+
+        function recomputePersonTotalsClient(personName) {
+            if (!currentResults || !currentResults[personName] || !Array.isArray(currentResults[personName].pedals)) return;
+            const personData = currentResults[personName];
+            personData.totalPrice = personData.pedals.reduce((sum, p) => sum + (p.ptmBuyPrice != null ? Number(p.ptmBuyPrice) : 0), 0);
+            personData.totalOffer = personData.pedals.reduce((sum, p) => {
+                const buy = (p.buyPrice != null && !isNaN(Number(p.buyPrice))) ? Number(p.buyPrice) : buyPriceFromFmv(p.ptmBuyPrice);
+                return sum + (buy != null && !isNaN(Number(buy)) ? Number(buy) : 0);
+            }, 0);
+        }
+
+        function refreshResultsAfterRowSave(personName) {
+            if (!currentResults) return;
+            recomputePersonTotalsClient(personName);
+            displayResults(currentResults, false);
+        }
+
         // Save Buy Price for a product. For no-match rows, creates a product first.
         async function saveBuyPrice(productId, rowId) {
             const input = document.getElementById('buy-price-' + rowId);
@@ -1751,8 +1802,21 @@
                     body: JSON.stringify(body)
                 });
                 const data = await response.json();
-                if (data.success && !productId) loadCalculation(currentCalculationId);
-                else if (!data.success) alert('Save failed: ' + (data.error || 'Unknown error'));
+                if (data.success) {
+                    let match = findCurrentResultRow(rowId);
+                    if (match) {
+                        match.row.buyPrice = buyPrice;
+                        if (!match.row.productId && resolvedProductId) match.row.productId = resolvedProductId;
+                        if (data.totals && data.totals.totalPrice != null) match.personData.totalPrice = Number(data.totals.totalPrice);
+                        if (data.totals && data.totals.totalOffer != null) match.personData.totalOffer = Number(data.totals.totalOffer);
+                        refreshResultsAfterRowSave(match.personName);
+                    }
+                    if (!productId && currentCalculationId && (!match || !match.row)) {
+                        await loadCalculation(currentCalculationId);
+                    }
+                } else {
+                    alert('Save failed: ' + (data.error || 'Unknown error'));
+                }
             } catch (err) {
                 console.error(err);
                 alert('Error saving: ' + err.message);
@@ -1769,12 +1833,13 @@
                 alert('Please enter a valid number (0 or greater) or leave empty.');
                 return;
             }
+            const baseRow = document.querySelector('[data-row-id="' + rowId + '"]');
+            const personName = baseRow ? (baseRow.getAttribute('data-person-name') || '') : '';
+            const pedal = baseRow ? (baseRow.getAttribute('data-pedal') || '') : '';
             let resolvedProductId = productId;
             if (!resolvedProductId && currentCalculationId) {
                 const row = document.querySelector('[data-row-id="' + rowId + '"]');
                 if (row) {
-                    const personName = row.getAttribute('data-person-name') || '';
-                    const pedal = row.getAttribute('data-pedal') || '';
                     try {
                         const r = await fetch('/api/calculations/' + currentCalculationId + '/ensure-no-match-product', {
                             method: 'POST',
@@ -1796,7 +1861,12 @@
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ ptmSellPrice: ptmSellPrice != null ? ptmSellPrice : null })
+                    body: JSON.stringify({
+                        ptmSellPrice: ptmSellPrice != null ? ptmSellPrice : null,
+                        calculationId: currentCalculationId || null,
+                        personName,
+                        pedal
+                    })
                 });
                 const data = await response.json();
                 if (data.success && data.ptmSellPriceExpiresAt) {
@@ -1808,7 +1878,18 @@
                 } else {
                     alert('Save failed: ' + (data.error || 'Unknown error'));
                 }
-                if (data.success && !productId) loadCalculation(currentCalculationId);
+                if (data.success) {
+                    const match = findCurrentResultRow(rowId);
+                    if (match) {
+                        match.row.ptmSellPrice = ptmSellPrice;
+                        match.row.ptmSellPriceExpiresAt = data.ptmSellPriceExpiresAt || (ptmSellPrice != null ? 'Saved' : null);
+                        if (!match.row.productId && resolvedProductId) match.row.productId = resolvedProductId;
+                        refreshResultsAfterRowSave(match.personName);
+                    }
+                    if (!productId && currentCalculationId && (!match || !match.row)) {
+                        await loadCalculation(currentCalculationId);
+                    }
+                }
             } catch (err) {
                 console.error(err);
                 alert('Error saving: ' + err.message);
@@ -1859,12 +1940,13 @@
                 alert('Please enter a valid number (0 or greater) or leave empty.');
                 return;
             }
+            const baseRow = document.querySelector('[data-row-id="' + rowId + '"]');
+            const personName = baseRow ? (baseRow.getAttribute('data-person-name') || '') : '';
+            const pedal = baseRow ? (baseRow.getAttribute('data-pedal') || '') : '';
             let resolvedProductId = productId;
             if (!resolvedProductId && currentCalculationId) {
                 const row = document.querySelector('[data-row-id="' + rowId + '"]');
                 if (row) {
-                    const personName = row.getAttribute('data-person-name') || '';
-                    const pedal = row.getAttribute('data-pedal') || '';
                     try {
                         const r = await fetch('/api/calculations/' + currentCalculationId + '/ensure-no-match-product', {
                             method: 'POST',
@@ -1886,7 +1968,12 @@
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',
-                    body: JSON.stringify({ ptmBuyPrice: ptmBuyPrice != null ? ptmBuyPrice : null })
+                    body: JSON.stringify({
+                        ptmBuyPrice: ptmBuyPrice != null ? ptmBuyPrice : null,
+                        calculationId: currentCalculationId || null,
+                        personName,
+                        pedal
+                    })
                 });
                 const data = await response.json();
                 if (data.success && data.ptmBuyPriceExpiresAt) {
@@ -1898,15 +1985,27 @@
                 } else {
                     alert('Save failed: ' + (data.error || 'Unknown error'));
                 }
-                // After saving PTM FMV, immediately show computed Buy Price in the row.
                 if (data.success) {
+                    const computedBuy = ptmBuyPrice != null ? buyPriceFromFmv(ptmBuyPrice) : null;
                     const buyInput = document.getElementById('buy-price-' + rowId);
                     if (buyInput) {
-                        const computedBuy = ptmBuyPrice != null ? buyPriceFromFmv(ptmBuyPrice) : null;
                         buyInput.value = computedBuy != null ? (Math.round(computedBuy * 100) / 100) : '';
                     }
+                    const match = findCurrentResultRow(rowId);
+                    if (match) {
+                        match.row.ptmBuyPrice = ptmBuyPrice;
+                        match.row.ptmBuyPriceExpiresAt = data.ptmBuyPriceExpiresAt || (ptmBuyPrice != null ? 'Saved' : null);
+                        match.row.buyPrice = computedBuy;
+                        if (!match.row.productId && resolvedProductId) match.row.productId = resolvedProductId;
+                        if (data.totals && data.totals.totalPrice != null) match.personData.totalPrice = Number(data.totals.totalPrice);
+                        if (data.totals && data.totals.totalOffer != null) match.personData.totalOffer = Number(data.totals.totalOffer);
+                        refreshResultsAfterRowSave(match.personName);
+                    }
                 }
-                if (data.success && !productId) loadCalculation(currentCalculationId);
+                if (data.success && !productId && currentCalculationId) {
+                    const match = findCurrentResultRow(rowId);
+                    if (!match || !match.row) await loadCalculation(currentCalculationId);
+                }
             } catch (err) {
                 console.error(err);
                 alert('Error saving: ' + err.message);

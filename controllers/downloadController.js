@@ -36,7 +36,7 @@ const downloadExcel = async (req, res) => {
       }
 
       const rows = [
-        ["Person", "Pedal", "Condition", "Brand", "Buy Price", "PTM FMV", "PTM FMV Exp", "Reverb PG Hist Price", "Reverb PG Link", "Reverb Market Sold Price", "Reverb Market Sold link", "Amt Listed", "PTM Sell Price", "PTM Sell Exp", "No Match?", "Partial match?", "FMV", "Offer"],
+        ["Person", "Pedal", "Condition", "Brand", "Buy Price", "FMV", "FMV Exp", "Reverb PG Hist Price", "Reverb PG Link", "Reverb Market Sold Price", "Reverb Market Sold link", "Amt Listed", "Sell Price", "Sell Exp", "No Match?", "Partial match?", "FMV", "Offer"],
       ];
 
       // Add pedal rows - use logged-in user's name instead of personName
@@ -70,15 +70,15 @@ const downloadExcel = async (req, res) => {
         "",
         "",
         "", // Buy Price
-        "", // PTM FMV
-        "", // PTM FMV Exp
+        "", // FMV
+        "", // FMV Exp
         "", // Reverb PG Hist Price
         "", // Reverb PG Link
         "", // Reverb Market Sold Price
         "", // Reverb Market Sold link
         "", // Amt Listed
-        "", // PTM Sell Price
-        "", // PTM Sell Exp
+        "", // Sell Price
+        "", // Sell Exp
         "", // No Match?
         "", // Partial match?
         personData.totalPrice || 0, // FMV
@@ -92,15 +92,15 @@ const downloadExcel = async (req, res) => {
         "",
         "",
         "", // Buy Price
-        "", // PTM FMV
-        "", // PTM FMV Exp
+        "", // FMV
+        "", // FMV Exp
         "", // Reverb PG Hist Price
         "", // Reverb PG Link
         "", // Reverb Market Sold Price
         "", // Reverb Market Sold link
         "", // Amt Listed
-        "", // PTM Sell Price
-        "", // PTM Sell Exp
+        "", // Sell Price
+        "", // Sell Exp
         "", // No Match?
         "", // Partial match?
         "", // FMV
@@ -126,7 +126,7 @@ const downloadExcel = async (req, res) => {
     // If multiple people, also create a combined sheet
     if (dataEntries.length > 1) {
       const combinedRows = [
-        ["Person", "Pedal", "Condition", "Brand", "Buy Price", "PTM FMV", "PTM FMV Exp", "Reverb PG Hist Price", "Reverb PG Link", "Reverb Market Sold Price", "Reverb Market Sold link", "Amt Listed", "PTM Sell Price", "PTM Sell Exp", "No Match?", "Partial match?", "FMV", "Offer"],
+        ["Person", "Pedal", "Condition", "Brand", "Buy Price", "FMV", "FMV Exp", "Reverb PG Hist Price", "Reverb PG Link", "Reverb Market Sold Price", "Reverb Market Sold link", "Amt Listed", "Sell Price", "Sell Exp", "No Match?", "Partial match?", "FMV", "Offer"],
       ];
 
       for (const [personName, personData] of dataEntries) {
@@ -163,15 +163,15 @@ const downloadExcel = async (req, res) => {
           "",
           "",
           "", // Buy Price
-          "", // PTM FMV
-          "", // PTM FMV Exp
+          "", // FMV
+          "", // FMV Exp
           "", // Reverb PG Hist Price
           "", // Reverb PG Link
           "", // Reverb Market Sold Price
           "", // Reverb Market Sold link
           "", // Amt Listed
-          "", // PTM Sell Price
-          "", // PTM Sell Exp
+          "", // Sell Price
+          "", // Sell Exp
           "", // No Match?
           "", // Partial match?
           personData.totalPrice || 0, // FMV
@@ -183,15 +183,15 @@ const downloadExcel = async (req, res) => {
           "",
           "",
           "", // Buy Price
-          "", // PTM FMV
-          "", // PTM FMV Exp
+          "", // FMV
+          "", // FMV Exp
           "", // Reverb PG Hist Price
           "", // Reverb PG Link
           "", // Reverb Market Sold Price
           "", // Reverb Market Sold link
           "", // Amt Listed
-          "", // PTM Sell Price
-          "", // PTM Sell Exp
+          "", // Sell Price
+          "", // Sell Exp
           "", // No Match?
           "", // Partial match?
           "", // FMV

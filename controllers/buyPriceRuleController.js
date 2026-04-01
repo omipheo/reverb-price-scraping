@@ -1,11 +1,5 @@
 const BuyPriceRuleConfig = require("../model/buy-price-rule-config.mdl");
-
-const DEFAULT_BUY_PRICE_RULES = [
-  { minFmv: null, maxFmv: 60, mode: "subtract", value: 20 }, // FMV < 60 => FMV - 20
-  { minFmv: 60, maxFmv: 121, mode: "percent", value: 35 }, // 60-120 => reduce 35%
-  { minFmv: 121, maxFmv: 200, mode: "percent", value: 30 }, // 121-199 => reduce 30%
-  { minFmv: 200, maxFmv: null, mode: "percent", value: 25 }, // 200+ => reduce 25%
-];
+const { DEFAULT_BUY_PRICE_RULES } = require("../utils/buyPriceRules");
 
 function toNumOrNull(v) {
   if (v == null || v === "") return null;

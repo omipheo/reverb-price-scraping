@@ -5,8 +5,9 @@ const { spawnSync } = require("child_process");
 const XLSX = require("xlsx");
 const Calculation = require("../model/calculation.mdl");
 const { findMatchingProduct } = require("../services/matching");
-const { calculatePriceFromTransactions, calculateOffer, calculatePtmSellPrice } = require("../utils/pricing");
+const { calculatePriceFromTransactions, calculatePtmSellPrice } = require("../utils/pricing");
 const { buildReverbPgLink, buildReverbMarketSoldLink } = require("../utils/reverb");
+const { getActiveBuyPriceRules, computeBuyPriceFromRules } = require("../utils/buyPriceRules");
 
 const SCRIPT_DIR = path.join(__dirname, "..", "scripts");
 const CLEAN_SCRIPT = path.join(SCRIPT_DIR, "clean-pedal-pricing.py");
@@ -126,6 +127,7 @@ function parseCsvLine(line) {
 
 const uploadFile = async (req, res) => {
   try {
+    const buyPriceRules = await getActiveBuyPriceRules();
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
@@ -226,6 +228,7 @@ const uploadFile = async (req, res) => {
           const reverbMarketSoldPrice = product.reverbMarketSoldPrice ?? null;
           const reverbMarketSoldLink = product.reverbMarketSoldLink ?? buildReverbMarketSoldLink(product);
           const ptmBuyPrice = ptmBuyFromSheet ?? product.ptmBuyPrice;
+          const buyPrice = product.buyPrice != null ? product.buyPrice : computeBuyPriceFromRules(ptmBuyPrice, buyPriceRules);
           const ptmBuyPriceExpiresAt = product.ptmBuyPriceExpiresAt || null;
           const expStr = ptmBuyPriceExpiresAt ? (ptmBuyPriceExpiresAt.toISOString ? ptmBuyPriceExpiresAt.toISOString().slice(0, 10) : ptmBuyPriceExpiresAt) : null;
           const ptmSellPrice = product.ptmSellPrice != null ? product.ptmSellPrice : calculatePtmSellPrice(product);
@@ -233,7 +236,7 @@ const uploadFile = async (req, res) => {
           const sellExpStr = ptmSellPriceExpiresAt ? (ptmSellPriceExpiresAt.toISOString ? ptmSellPriceExpiresAt.toISOString().slice(0, 10) : ptmSellPriceExpiresAt) : null;
 
           if (price !== null) {
-            const offer = calculateOffer(price);
+            const offer = buyPrice != null ? buyPrice : 0;
 
             pedalResults.push({
               pedal,
@@ -251,7 +254,7 @@ const uploadFile = async (req, res) => {
               ptmBuyPrice,
               ptmBuyPriceExpiresAt: expStr,
               productId: product.canonicalProductId,
-              buyPrice: product.buyPrice != null ? product.buyPrice : null,
+              buyPrice,
               ptmSellPrice,
               ptmSellPriceExpiresAt: sellExpStr,
               noMatch: false,
@@ -275,7 +278,7 @@ const uploadFile = async (req, res) => {
               ptmBuyPrice,
               ptmBuyPriceExpiresAt: expStr,
               productId: product.canonicalProductId,
-              buyPrice: product.buyPrice != null ? product.buyPrice : null,
+              buyPrice,
               ptmSellPrice,
               ptmSellPriceExpiresAt: sellExpStr,
               noMatch: false,
@@ -323,12 +326,15 @@ const uploadFile = async (req, res) => {
         (sum, p) => sum + (p.ptmBuyPrice != null ? p.ptmBuyPrice : 0),
         0
       );
-      const totalOffer = calculateOffer(totalPrice);
+      const totalOffer = pedalResults.reduce(
+        (sum, p) => sum + (p.buyPrice != null && Number.isFinite(Number(p.buyPrice)) ? Number(p.buyPrice) : 0),
+        0
+      );
 
       allResults[personName] = {
         pedals: pedalResults,
         totalPrice,
-        totalOffer,
+        totalOffer: Number(totalOffer.toFixed(2)),
       };
     }
 
@@ -350,7 +356,7 @@ const uploadFile = async (req, res) => {
       inputData: { filename: req.file.originalname, processedData },
       results: allResults,
       totalPrice: overallTotalPrice,
-      totalOffer: overallTotalOffer,
+      totalOffer: Number(overallTotalOffer.toFixed(2)),
     });
     await calculation.save();
 
@@ -358,7 +364,7 @@ const uploadFile = async (req, res) => {
       results: allResults,
       calculationId: calculation._id,
       totalPrice: overallTotalPrice,
-      totalOffer: overallTotalOffer,
+      totalOffer: Number(overallTotalOffer.toFixed(2)),
     });
   } catch (error) {
     console.error("Error in /api/upload:", error);

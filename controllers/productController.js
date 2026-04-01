@@ -2,11 +2,60 @@ const Product = require("../model/product.mdl");
 const Calculation = require("../model/calculation.mdl");
 const PriceAudit = require("../model/price-audit.mdl");
 const { addOneYear } = require("../utils/pricing");
+const {
+  getActiveBuyPriceRules,
+  computeBuyPriceFromRules,
+  recomputePersonTotals,
+} = require("../utils/buyPriceRules");
+
+async function updateCalculationRowAndTotals({
+  calculationId,
+  userId,
+  personName,
+  pedal,
+  updateRow,
+  recalcTotals = false,
+}) {
+  if (!calculationId || personName == null || pedal == null) return null;
+  const calculation = await Calculation.findOne({ _id: calculationId, userId });
+  if (!calculation || !calculation.results || !calculation.results[personName]) return null;
+
+  const personData = calculation.results[personName];
+  if (!personData || !Array.isArray(personData.pedals)) return null;
+  const row = personData.pedals.find((p) => p.pedal === pedal);
+  if (!row) return null;
+
+  const rules = recalcTotals ? await getActiveBuyPriceRules() : null;
+  updateRow(row, rules || []);
+
+  if (recalcTotals) {
+    recomputePersonTotals(personData, rules || []);
+    calculation.totalPrice = Object.values(calculation.results || {}).reduce(
+      (sum, p) => sum + (p && Number.isFinite(Number(p.totalPrice)) ? Number(p.totalPrice) : 0),
+      0
+    );
+    calculation.totalOffer = Object.values(calculation.results || {}).reduce(
+      (sum, p) => sum + (p && Number.isFinite(Number(p.totalOffer)) ? Number(p.totalOffer) : 0),
+      0
+    );
+  }
+
+  calculation.markModified("results");
+  await calculation.save();
+
+  return {
+    personName,
+    totalPrice: personData.totalPrice,
+    totalOffer: personData.totalOffer,
+    calculationTotalPrice: calculation.totalPrice,
+    calculationTotalOffer: calculation.totalOffer,
+  };
+}
 
 const updatePtmBuyPrice = async (req, res) => {
   try {
     const { productId } = req.params;
-    const { ptmBuyPrice } = req.body;
+    const { ptmBuyPrice, calculationId, personName, pedal } = req.body;
     if (productId === undefined || productId === "") {
       return res.status(400).json({ error: "Product ID is required" });
     }
@@ -21,6 +70,21 @@ const updatePtmBuyPrice = async (req, res) => {
     product.ptmBuyPrice = newValue;
     product.ptmBuyPriceExpiresAt = expiresAt;
     await product.save();
+
+    const computedBuyPrice = newValue != null ? computeBuyPriceFromRules(newValue, await getActiveBuyPriceRules()) : null;
+    const calcUpdate = await updateCalculationRowAndTotals({
+      calculationId,
+      userId: req.session.userId,
+      personName,
+      pedal,
+      recalcTotals: true,
+      updateRow: (row) => {
+        row.ptmBuyPrice = newValue;
+        row.ptmBuyPriceExpiresAt = expiresAt ? expiresAt.toISOString().slice(0, 10) : null;
+        row.buyPrice = computedBuyPrice;
+      },
+    });
+
     await PriceAudit.create({
       userId: req.session.userId,
       productId: product.canonicalProductId,
@@ -33,6 +97,8 @@ const updatePtmBuyPrice = async (req, res) => {
       productId: product.canonicalProductId,
       ptmBuyPrice: product.ptmBuyPrice,
       ptmBuyPriceExpiresAt: product.ptmBuyPriceExpiresAt ? product.ptmBuyPriceExpiresAt.toISOString().slice(0, 10) : null,
+      buyPrice: computedBuyPrice,
+      totals: calcUpdate || undefined,
     });
   } catch (error) {
     console.error("Error in PATCH /api/products/:productId/ptm-buy-price:", error);
@@ -43,7 +109,7 @@ const updatePtmBuyPrice = async (req, res) => {
 const updatePtmSellPrice = async (req, res) => {
   try {
     const { productId } = req.params;
-    const { ptmSellPrice } = req.body;
+    const { ptmSellPrice, calculationId, personName, pedal } = req.body;
     if (productId === undefined || productId === "") {
       return res.status(400).json({ error: "Product ID is required" });
     }
@@ -56,6 +122,21 @@ const updatePtmSellPrice = async (req, res) => {
     product.ptmSellPrice = newValue;
     product.ptmSellPriceExpiresAt = newValue != null ? addOneYear(now) : null;
     await product.save();
+
+    await updateCalculationRowAndTotals({
+      calculationId,
+      userId: req.session.userId,
+      personName,
+      pedal,
+      recalcTotals: false,
+      updateRow: (row) => {
+        row.ptmSellPrice = newValue;
+        row.ptmSellPriceExpiresAt = product.ptmSellPriceExpiresAt
+          ? product.ptmSellPriceExpiresAt.toISOString().slice(0, 10)
+          : null;
+      },
+    });
+
     res.json({
       success: true,
       productId: product.canonicalProductId,
@@ -83,21 +164,22 @@ const updateBuyPrice = async (req, res) => {
     product.buyPrice = newValue;
     await product.save();
 
-    if (calculationId && personName != null && pedal != null) {
-      const calculation = await Calculation.findOne({ _id: calculationId, userId: req.session.userId });
-      if (calculation && calculation.results && calculation.results[personName]) {
-        const row = calculation.results[personName].pedals.find((p) => p.pedal === pedal);
-        if (row) {
-          row.buyPrice = newValue;
-          await calculation.save();
-        }
-      }
-    }
+    const calcUpdate = await updateCalculationRowAndTotals({
+      calculationId,
+      userId: req.session.userId,
+      personName,
+      pedal,
+      recalcTotals: true,
+      updateRow: (row) => {
+        row.buyPrice = newValue;
+      },
+    });
 
     res.json({
       success: true,
       productId: product.canonicalProductId,
       buyPrice: product.buyPrice,
+      totals: calcUpdate || undefined,
     });
   } catch (error) {
     console.error("Error in PATCH /api/products/:productId/buy-price:", error);

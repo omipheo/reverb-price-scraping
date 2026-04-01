@@ -1,11 +1,13 @@
 const Calculation = require("../model/calculation.mdl");
 const { findMatchingProduct } = require("../services/matching");
-const { calculatePriceFromTransactions, calculateOffer, calculatePtmSellPrice } = require("../utils/pricing");
+const { calculatePriceFromTransactions, calculatePtmSellPrice } = require("../utils/pricing");
 const { buildReverbPgLink, buildReverbMarketSoldLink } = require("../utils/reverb");
+const { getActiveBuyPriceRules, computeBuyPriceFromRules } = require("../utils/buyPriceRules");
 
 const searchPedals = async (req, res) => {
   try {
     const { pedals } = req.body;
+    const buyPriceRules = await getActiveBuyPriceRules();
 
     if (!pedals || !Array.isArray(pedals)) {
       return res.status(400).json({ error: "Pedals array is required" });
@@ -27,6 +29,7 @@ const searchPedals = async (req, res) => {
         const reverbMarketSoldPrice = product.reverbMarketSoldPrice ?? null;
         const reverbMarketSoldLink = product.reverbMarketSoldLink ?? buildReverbMarketSoldLink(product);
         const ptmBuyPrice = product.ptmBuyPrice != null ? product.ptmBuyPrice : null;
+        const buyPrice = product.buyPrice != null ? product.buyPrice : computeBuyPriceFromRules(ptmBuyPrice, buyPriceRules);
         const ptmBuyPriceExpiresAt = product.ptmBuyPriceExpiresAt || null;
         const expStr = ptmBuyPriceExpiresAt ? (ptmBuyPriceExpiresAt.toISOString ? ptmBuyPriceExpiresAt.toISOString().slice(0, 10) : ptmBuyPriceExpiresAt) : null;
         const ptmSellPrice = product.ptmSellPrice != null ? product.ptmSellPrice : calculatePtmSellPrice(product);
@@ -34,7 +37,7 @@ const searchPedals = async (req, res) => {
         const sellExpStr = ptmSellPriceExpiresAt ? (ptmSellPriceExpiresAt.toISOString ? ptmSellPriceExpiresAt.toISOString().slice(0, 10) : ptmSellPriceExpiresAt) : null;
 
         if (price !== null) {
-          const offer = calculateOffer(price);
+          const offer = buyPrice != null ? buyPrice : 0;
 
           results.push({
             pedalName,
@@ -51,6 +54,7 @@ const searchPedals = async (req, res) => {
             reverbMarketSoldLink,
             amtListedOnReverbMarket: null,
             ptmBuyPrice,
+            buyPrice,
             ptmBuyPriceExpiresAt: expStr,
             ptmSellPrice,
             ptmSellPriceExpiresAt: sellExpStr,
@@ -74,6 +78,7 @@ const searchPedals = async (req, res) => {
             reverbMarketSoldLink,
             amtListedOnReverbMarket: null,
             ptmBuyPrice,
+            buyPrice,
             ptmBuyPriceExpiresAt: expStr,
             ptmSellPrice,
             ptmSellPriceExpiresAt: sellExpStr,
@@ -98,6 +103,7 @@ const searchPedals = async (req, res) => {
           reverbMarketSoldLink: null,
           amtListedOnReverbMarket: null,
           ptmBuyPrice: null,
+          buyPrice: null,
           ptmBuyPriceExpiresAt: null,
           ptmSellPrice: null,
           ptmSellPriceExpiresAt: null,
@@ -118,7 +124,10 @@ const searchPedals = async (req, res) => {
 
     // FMV = sum of PTM Buy Prices only (client requirement)
     const totalPrice = results.reduce((sum, r) => sum + (r.ptmBuyPrice != null ? r.ptmBuyPrice : 0), 0);
-    const totalOffer = calculateOffer(totalPrice);
+    const totalOffer = results.reduce(
+      (sum, r) => sum + (r.buyPrice != null && Number.isFinite(Number(r.buyPrice)) ? Number(r.buyPrice) : 0),
+      0
+    );
 
     // Format results for display (convert array to object format)
     const formattedResults = {
@@ -137,6 +146,7 @@ const searchPedals = async (req, res) => {
           reverbMarketSoldLink: r.reverbMarketSoldLink,
           amtListedOnReverbMarket: r.amtListedOnReverbMarket,
           ptmBuyPrice: r.ptmBuyPrice,
+          buyPrice: r.buyPrice != null ? r.buyPrice : null,
           ptmBuyPriceExpiresAt: r.ptmBuyPriceExpiresAt,
           productId: r.productId,
           ptmSellPrice: r.ptmSellPrice,
@@ -146,7 +156,7 @@ const searchPedals = async (req, res) => {
           matchNotes: r.matchNotes || "",
         })),
         totalPrice,
-        totalOffer,
+        totalOffer: Number(totalOffer.toFixed(2)),
       }
     };
 
@@ -158,7 +168,7 @@ const searchPedals = async (req, res) => {
       inputData: { pedals },
       results: formattedResults, // Save in object format
       totalPrice,
-      totalOffer,
+      totalOffer: Number(totalOffer.toFixed(2)),
     });
     await calculation.save();
 
@@ -166,7 +176,7 @@ const searchPedals = async (req, res) => {
       results: formattedResults, // Return in object format
       calculationId: calculation._id,
       totalPrice,
-      totalOffer,
+      totalOffer: Number(totalOffer.toFixed(2)),
     });
   } catch (error) {
     console.error("Error in /api/search:", error);
