@@ -482,6 +482,9 @@
                 <button class="btn btn-success btn-lg" onclick="downloadResults()">
                     <i class="bi bi-download"></i> Download Excel
                 </button>
+                <button class="btn btn-outline-success btn-lg ms-2" onclick="downloadOfferResults()">
+                    <i class="bi bi-file-earmark-arrow-down"></i> Offer Download
+                </button>
                 <button class="btn btn-secondary btn-lg" onclick="clearResults()">
                     <i class="bi bi-x-circle"></i> Clear Results
                 </button>
@@ -1738,6 +1741,44 @@
             } catch (error) {
                 console.error('Error:', error);
                 alert('Error downloading file: ' + error.message);
+            }
+        }
+
+        // Download compact offer spreadsheet
+        async function downloadOfferResults() {
+            if (!currentResults) {
+                alert('No results to download');
+                return;
+            }
+            try {
+                const response = await fetch('/api/download-offer', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({ data: currentResults })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Offer download failed' }));
+                    throw new Error(errorData.error || 'Offer download failed');
+                }
+
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `offer_${Date.now()}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => {
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                }, 100);
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error downloading offer file: ' + error.message);
             }
         }
 

@@ -103,5 +103,6 @@ router.post("/api/upload", requireAuth, upload.single("file"), uploadController.
 // Download route
 const downloadController = require("../controllers/downloadController");
 router.post("/api/download", requireAuth, downloadController.downloadExcel);
+router.post("/api/download-offer", requireAuth, downloadController.downloadOfferExcel);
 
 module.exports = router;

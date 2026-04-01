@@ -1,4 +1,5 @@
 const XLSX = require("xlsx");
+const { getActiveBuyPriceRules, computeBuyPriceFromRules } = require("../utils/buyPriceRules");
 
 const downloadExcel = async (req, res) => {
   try {
@@ -228,6 +229,71 @@ const downloadExcel = async (req, res) => {
   }
 };
 
+const downloadOfferExcel = async (req, res) => {
+  try {
+    const { data } = req.body;
+
+    if (!data || typeof data !== "object") {
+      return res.status(400).json({ error: "Invalid data format" });
+    }
+
+    const dataEntries = Object.entries(data).filter(
+      ([, personData]) => personData && Array.isArray(personData.pedals) && personData.pedals.length > 0
+    );
+    if (dataEntries.length === 0) {
+      return res.status(400).json({ error: "No pedals found in data" });
+    }
+
+    const buyPriceRules = await getActiveBuyPriceRules();
+    const workbook = XLSX.utils.book_new();
+    const rows = [];
+
+    for (const [personName, personData] of dataEntries) {
+      rows.push(["Customer", personName]);
+      rows.push(["Pedal", "Buy Price", "FMV", "Offer"]);
+
+      let totalOffer = 0;
+      for (const pedal of personData.pedals) {
+        const fmv = pedal.ptmBuyPrice != null && Number.isFinite(Number(pedal.ptmBuyPrice)) ? Number(pedal.ptmBuyPrice) : null;
+        const buyPrice =
+          pedal.buyPrice != null && Number.isFinite(Number(pedal.buyPrice))
+            ? Number(pedal.buyPrice)
+            : computeBuyPriceFromRules(fmv, buyPriceRules);
+        const rowOffer = buyPrice != null ? Number(buyPrice) : 0;
+        totalOffer += rowOffer;
+
+        rows.push([
+          pedal.matchedProduct || pedal.pedal || "",
+          buyPrice != null ? Number(buyPrice.toFixed(2)) : "",
+          fmv != null ? Number(fmv.toFixed(2)) : "",
+          Number(rowOffer.toFixed(2)),
+        ]);
+      }
+
+      rows.push(["", "", "Offer Total", Number(totalOffer.toFixed(2))]);
+      rows.push([]);
+    }
+
+    const worksheet = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Offer");
+
+    const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="offer_${Date.now()}.xlsx"`
+    );
+    res.send(buffer);
+  } catch (error) {
+    console.error("Error in /api/download-offer:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
 module.exports = {
   downloadExcel,
+  downloadOfferExcel,
 };
