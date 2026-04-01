@@ -6,7 +6,11 @@ const { getActiveBuyPriceRules, computeBuyPriceFromRules } = require("../utils/b
 
 const searchPedals = async (req, res) => {
   try {
-    const { pedals } = req.body;
+    const { pedals, customerName } = req.body;
+    const resolvedCustomerName =
+      customerName && String(customerName).trim()
+        ? String(customerName).trim()
+        : "All Pedals";
     const buyPriceRules = await getActiveBuyPriceRules();
 
     if (!pedals || !Array.isArray(pedals)) {
@@ -131,7 +135,7 @@ const searchPedals = async (req, res) => {
 
     // Format results for display (convert array to object format)
     const formattedResults = {
-      "All Pedals": {
+      [resolvedCustomerName]: {
         pedals: results.map(r => ({
           pedal: r.pedalName,
           condition: r.condition,
@@ -165,7 +169,7 @@ const searchPedals = async (req, res) => {
       userId: req.session.userId,
       title: req.body.title || `Calculation ${new Date().toLocaleString()}`,
       inputType: "text",
-      inputData: { pedals },
+      inputData: { customerName: resolvedCustomerName, pedals },
       results: formattedResults, // Save in object format
       totalPrice,
       totalOffer: Number(totalOffer.toFixed(2)),

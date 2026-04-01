@@ -8,9 +8,6 @@ const downloadExcel = async (req, res) => {
       return res.status(400).json({ error: "Invalid data format" });
     }
 
-    // Get logged-in user's name
-    const userName = req.session.userName || "User";
-
     // Check if data is empty
     const dataEntries = Object.entries(data);
     if (dataEntries.length === 0) {
@@ -39,10 +36,10 @@ const downloadExcel = async (req, res) => {
         ["Person", "Pedal", "Condition", "Brand", "Buy Price", "FMV", "FMV Exp", "Reverb PG Hist Price", "Reverb PG Link", "Reverb Market Sold Price", "Reverb Market Sold link", "Amt Listed", "Sell Price", "Sell Exp", "No Match?", "Partial match?", "FMV", "Offer"],
       ];
 
-      // Add pedal rows - use logged-in user's name instead of personName
+      // Add pedal rows using customer/person name from calculation key
       for (const pedal of personData.pedals) {
         rows.push([
-          userName,
+          personName,
           pedal.matchedProduct || pedal.pedal || "",
           pedal.condition || "",
           pedal.brand || "",
@@ -65,7 +62,7 @@ const downloadExcel = async (req, res) => {
 
       // Add total row
       rows.push([
-        userName,
+        personName,
         "TOTAL",
         "",
         "",
@@ -87,7 +84,7 @@ const downloadExcel = async (req, res) => {
 
       // Add offer row
       rows.push([
-        userName,
+        personName,
         "OFFER",
         "",
         "",
@@ -117,8 +114,8 @@ const downloadExcel = async (req, res) => {
       if (dataEntries.length === 1) {
         XLSX.utils.book_append_sheet(workbook, worksheet, "Results");
       } else {
-        // Multiple people - use user's name for sheet name
-        const sheetName = userName.substring(0, 31); // Excel sheet name limit
+        // Multiple people - use customer name for sheet name
+        const sheetName = String(personName || "Results").substring(0, 31); // Excel sheet name limit
         XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
       }
     }
@@ -137,7 +134,7 @@ const downloadExcel = async (req, res) => {
 
         for (const pedal of personData.pedals) {
           combinedRows.push([
-            userName,
+            personName,
             pedal.matchedProduct || pedal.pedal || "",
             pedal.condition || "",
             pedal.brand || "",
@@ -158,7 +155,7 @@ const downloadExcel = async (req, res) => {
           ]);
         }
         combinedRows.push([
-          userName,
+          personName,
           "TOTAL",
           "",
           "",
@@ -178,7 +175,7 @@ const downloadExcel = async (req, res) => {
           "", // Offer
         ]);
         combinedRows.push([
-          userName,
+          personName,
           "OFFER",
           "",
           "",

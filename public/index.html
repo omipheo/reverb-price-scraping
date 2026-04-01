@@ -1409,9 +1409,19 @@
                 return;
             }
 
-            // Parse pedals from text (one per line; optional "Name, Condition")
+            // First non-empty line is customer name; remaining lines are pedals.
             const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-            const pedals = lines.map(line => {
+            const customerName = (lines[0] || '').trim();
+            const pedalLines = lines.slice(1);
+            if (!customerName) {
+                alert('Please enter customer name in the first line.');
+                return;
+            }
+            if (pedalLines.length === 0) {
+                alert('Please enter at least one pedal after the customer name.');
+                return;
+            }
+            const pedals = pedalLines.map(line => {
                 const parts = line.split(',').map(p => p.trim());
                 return {
                     name: (parts[0] || line).trim(),
@@ -1419,11 +1429,11 @@
                 };
             });
 
-            await searchPedals(pedals);
+            await searchPedals(pedals, customerName);
         }
 
         // Search pedals via API
-        async function searchPedals(pedals) {
+        async function searchPedals(pedals, customerName = null) {
             showLoading();
 
             try {
@@ -1433,7 +1443,7 @@
                         'Content-Type': 'application/json'
                     },
                     credentials: 'include',
-                    body: JSON.stringify({ pedals })
+                    body: JSON.stringify({ pedals, customerName })
                 });
 
                 const data = await response.json();
@@ -1508,7 +1518,7 @@
         }
 
         // Search pedals via API
-        async function searchPedals(pedals) {
+        async function searchPedals(pedals, customerName = null) {
             showLoading();
 
             try {
@@ -1518,7 +1528,7 @@
                         'Content-Type': 'application/json'
                     },
                     credentials: 'include',
-                    body: JSON.stringify({ pedals })
+                    body: JSON.stringify({ pedals, customerName })
                 });
 
                 const data = await response.json();
