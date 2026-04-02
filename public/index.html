@@ -437,6 +437,10 @@
                 <!-- Text Input Tab -->
                 <div class="tab-pane fade show active" id="text-input" role="tabpanel">
                     <div class="mb-3">
+                        <div class="form-check mb-2">
+                            <input type="checkbox" class="form-check-input" id="firstRowCustomerNameCheck" checked>
+                            <label class="form-check-label" for="firstRowCustomerNameCheck">First row is customer's name</label>
+                        </div>
                         <label for="pedalList" class="form-label">Enter pedal list (one per line):</label>
                         <textarea 
                             class="form-control" 
@@ -1412,16 +1416,19 @@
                 return;
             }
 
-            // First non-empty line is customer name; remaining lines are pedals.
+            // First non-empty line can be customer name (checkbox-controlled).
             const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-            const customerName = (lines[0] || '').trim();
-            const pedalLines = lines.slice(1);
-            if (!customerName) {
-                alert('Please enter customer name in the first line.');
+            const firstRowIsCustomerName = !!document.getElementById('firstRowCustomerNameCheck')?.checked;
+            const customerName = firstRowIsCustomerName ? (lines[0] || '').trim() : null;
+            const pedalLines = firstRowIsCustomerName ? lines.slice(1) : lines;
+            if (firstRowIsCustomerName && !customerName) {
+                alert("Please enter customer's name in the first line.");
                 return;
             }
             if (pedalLines.length === 0) {
-                alert('Please enter at least one pedal after the customer name.');
+                alert(firstRowIsCustomerName
+                    ? 'Please enter at least one pedal after the customer name.'
+                    : 'Please enter at least one pedal.');
                 return;
             }
             const pedals = pedalLines.map(line => {
