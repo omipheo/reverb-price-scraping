@@ -106,6 +106,40 @@ async function ensureProductForNoMatchRow(calculation, personName, pedal) {
   return product.canonicalProductId;
 }
 
+/** Create a Product for an exact row index if missing, and assign productId to that row. */
+async function ensureProductForExactRow(calculation, personName, rowIndex) {
+  const results = calculation.results;
+  if (
+    !results ||
+    typeof results !== "object" ||
+    !results[personName] ||
+    !Array.isArray(results[personName].pedals)
+  ) {
+    return null;
+  }
+  if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= results[personName].pedals.length) {
+    return null;
+  }
+  const row = results[personName].pedals[rowIndex];
+  if (!row) return null;
+  if (row.productId) return row.productId;
+
+  const pedal = row.pedal || "Unknown";
+  const canonicalProductId = "user-added-" + new mongoose.Types.ObjectId().toHexString();
+  const product = new Product({
+    canonicalProductId,
+    title: pedal,
+    normalizedTitle: normalizePedalName(pedal || ""),
+    hasPriceGuide: true,
+  });
+  await product.save();
+
+  row.productId = product.canonicalProductId;
+  calculation.results = results;
+  await calculation.save();
+  return product.canonicalProductId;
+}
+
 const getCalculations = async (req, res) => {
   try {
     const calculations = await Calculation.find({ userId: req.session.userId })
@@ -172,7 +206,7 @@ const deleteCalculation = async (req, res) => {
 const updatePedalFeedback = async (req, res) => {
   try {
     const { id } = req.params;
-    const { productId, noMatch, partialMatch, personName, pedal, matchNotes } = req.body;
+    const { productId, noMatch, partialMatch, personName, pedal, rowIndex, matchNotes } = req.body;
     const matchNotesText = (matchNotes || "").trim();
     const calculation = await Calculation.findOne({ _id: id, userId: req.session.userId });
     if (!calculation) {
@@ -185,12 +219,37 @@ const updatePedalFeedback = async (req, res) => {
 
     let resolvedProductId = productId;
 
-    // 1) Preferred path: update row by (personName, pedal) if provided.
+    // 1) Preferred path: update exact row by (personName, rowIndex) when provided.
     let updated = false;
     let updatedPersonName = "";
     let updatedPedal = "";
+    const parsedRowIndex = rowIndex != null && Number.isInteger(Number(rowIndex)) ? Number(rowIndex) : null;
+    if (
+      !updated &&
+      personName != null &&
+      parsedRowIndex != null &&
+      results[personName] &&
+      Array.isArray(results[personName].pedals) &&
+      parsedRowIndex >= 0 &&
+      parsedRowIndex < results[personName].pedals.length
+    ) {
+      const row = results[personName].pedals[parsedRowIndex];
+      if (row) {
+        if (!resolvedProductId && (noMatch || partialMatch)) {
+          resolvedProductId = await ensureProductForExactRow(calculation, personName, parsedRowIndex);
+        }
+        row.noMatch = !!noMatch;
+        row.partialMatch = !!partialMatch;
+        row.matchNotes = matchNotesText;
+        updated = true;
+        updatedPersonName = personName;
+        updatedPedal = row.pedal || pedal || "";
+      }
+    }
+
+    // 2) Legacy path: update row by (personName, pedal) if provided.
     if (personName != null && pedal != null && results[personName] && Array.isArray(results[personName].pedals)) {
-      const row = results[personName].pedals.find((p) => p.pedal === pedal);
+      const row = !updated ? results[personName].pedals.find((p) => p.pedal === pedal) : null;
       if (row) {
         // Only create a permanent Product if the user actually marked no/partial match.
         // Typing notes alone should not create products.
@@ -207,7 +266,7 @@ const updatePedalFeedback = async (req, res) => {
       }
     }
 
-    // 2) Fallback: update row by productId.
+    // 3) Fallback: update row by productId.
     if (!updated && resolvedProductId) {
       for (const personKey of Object.keys(results)) {
         const personData = results[personKey];

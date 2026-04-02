@@ -1622,7 +1622,7 @@
                                         const reverbMarketSoldLink = p.reverbMarketSoldLink ? `<a href="${p.reverbMarketSoldLink}" target="_blank" class="btn btn-sm btn-link p-0">Link</a>` : '-';
                                         const amtListed = p.amtListedOnReverbMarket != null ? p.amtListedOnReverbMarket : '-';
                                         return `
-                                        <tr data-product-id="${p.productId || ''}" data-row-id="${rowId}" data-person-name="${esc(personName)}" data-pedal="${esc(p.pedal)}">
+                                        <tr data-product-id="${p.productId || ''}" data-row-id="${rowId}" data-row-index="${idx}" data-person-name="${esc(personName)}" data-pedal="${esc(p.pedal)}" data-matched-product="${esc(p.matchedProduct || '')}">
                                             <td class="input-cell">${p.pedal || '-'}</td>
                                             <td>${p.matchedProduct || `<span class="no-match">${p.pedal} (No match)</span>`}</td>
                                             <td class="text-end">
@@ -1801,9 +1801,14 @@
             const pedal = rowEl.getAttribute('data-pedal') || '';
             const personData = currentResults[personName];
             if (!personData || !Array.isArray(personData.pedals)) return null;
-            const row = personData.pedals.find((p) => (p.pedal || '') === pedal);
+            const idxRaw = rowEl.getAttribute('data-row-index');
+            const rowIndex = idxRaw != null && idxRaw !== '' ? Number(idxRaw) : NaN;
+            const row =
+                Number.isInteger(rowIndex) && rowIndex >= 0 && rowIndex < personData.pedals.length
+                    ? personData.pedals[rowIndex]
+                    : personData.pedals.find((p) => (p.pedal || '') === pedal);
             if (!row) return null;
-            return { personName, pedal, personData, row };
+            return { personName, pedal, rowIndex: Number.isInteger(rowIndex) ? rowIndex : null, personData, row };
         }
 
         function recomputePersonTotalsClient(personName) {
@@ -1822,6 +1827,27 @@
             displayResults(currentResults, false);
         }
 
+        // Confirm when user marked no/partial match but is editing a matched product's prices.
+        function shouldConfirmPriceSaveForMatchedProduct(rowId) {
+            const noMatchEl = document.getElementById('nomatch-' + rowId);
+            const partialEl = document.getElementById('partial-' + rowId);
+            const noMatchChecked = !!(noMatchEl && noMatchEl.checked);
+            const partialChecked = !!(partialEl && partialEl.checked);
+            if (!noMatchChecked && !partialChecked) return true;
+
+            const rowEl = document.querySelector('[data-row-id="' + rowId + '"]');
+            const matchedProductFromDom = rowEl ? (rowEl.getAttribute('data-matched-product') || '').trim() : '';
+            const matchedProductFromCell = rowEl && rowEl.children && rowEl.children[1]
+                ? String(rowEl.children[1].innerText || '').replace(/\s+\(No match\)\s*$/i, '').trim()
+                : '';
+            const match = findCurrentResultRow(rowId);
+            const matchedProductFromState = match && match.row ? String(match.row.matchedProduct || '').trim() : '';
+            const matchedProduct = matchedProductFromDom || matchedProductFromState || matchedProductFromCell;
+            if (!matchedProduct) return true; // true no-match row: no warning needed
+
+            return confirm(`Are you sure you want to change the price for the ${matchedProduct}? It's not the pedal you entered.`);
+        }
+
         // Save Buy Price for a product. For no-match rows, creates a product first.
         async function saveBuyPrice(productId, rowId) {
             const input = document.getElementById('buy-price-' + rowId);
@@ -1832,6 +1858,7 @@
                 alert('Please enter a valid number (0 or greater) or leave empty.');
                 return;
             }
+            if (!shouldConfirmPriceSaveForMatchedProduct(rowId)) return;
             let resolvedProductId = productId;
             const row = document.querySelector('[data-row-id="' + rowId + '"]');
             const personName = row ? (row.getAttribute('data-person-name') || '') : '';
@@ -1891,6 +1918,7 @@
                 alert('Please enter a valid number (0 or greater) or leave empty.');
                 return;
             }
+            if (!shouldConfirmPriceSaveForMatchedProduct(rowId)) return;
             const baseRow = document.querySelector('[data-row-id="' + rowId + '"]');
             const personName = baseRow ? (baseRow.getAttribute('data-person-name') || '') : '';
             const pedal = baseRow ? (baseRow.getAttribute('data-pedal') || '') : '';
@@ -1967,6 +1995,10 @@
                 if (row) {
                     body.personName = row.getAttribute('data-person-name') || '';
                     body.pedal = row.getAttribute('data-pedal') || '';
+                    const idxRaw = row.getAttribute('data-row-index');
+                    if (idxRaw != null && idxRaw !== '' && !isNaN(Number(idxRaw))) {
+                        body.rowIndex = Number(idxRaw);
+                    }
                 }
             }
             if (productId) {
@@ -1981,8 +2013,24 @@
                     body: JSON.stringify(body)
                 });
                 const data = await response.json();
-                if (!data.success) alert('Could not save match feedback: ' + (data.error || 'Unknown error'));
-                else if (data.productId) loadCalculation(calculationId);
+                if (!data.success) {
+                    alert('Could not save match feedback: ' + (data.error || 'Unknown error'));
+                    return;
+                }
+
+                // Keep checkbox/notes state in currentResults so later rerenders
+                // (e.g. from price saves) do not revert the user's selection.
+                if (rowId) {
+                    const match = findCurrentResultRow(rowId);
+                    if (match && match.row) {
+                        match.row.noMatch = !!noMatch;
+                        match.row.partialMatch = !!partialMatch;
+                        match.row.matchNotes = body.matchNotes || '';
+                        if (data.productId && !match.row.productId) {
+                            match.row.productId = data.productId;
+                        }
+                    }
+                }
             } catch (err) {
                 console.error(err);
             }
