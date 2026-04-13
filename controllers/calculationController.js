@@ -61,12 +61,22 @@ async function maybeSendDailyMatchFeedbackNotification({ now, noMatch, partialMa
     }),
   ]);
 
+  const summary = [
+    `Daily match feedback for ${dateKey}.`,
+    "",
+    `Total New Matches: ${totalNew}`,
+    `No Matches: ${noMatchCount}`,
+    `Partial Matches: ${partialMatchCount}`,
+    `Notes Count: ${notesCount}`,
+  ].join("\n");
+
   const payload = {
     dateKey,
     totalNew,
     noMatchCount,
     partialMatchCount,
     notesCount,
+    summary,
   };
 
   // Always log so you can see it even without external webhooks.
