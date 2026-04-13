@@ -1,5 +1,5 @@
 const XLSX = require("xlsx");
-const { getActiveBuyPriceRules, computeBuyPriceFromRules } = require("../utils/buyPriceRules");
+const { getActiveBuyPriceRules, exportOfferRowValues } = require("../utils/buyPriceRules");
 
 const downloadExcel = async (req, res) => {
   try {
@@ -254,12 +254,7 @@ const downloadOfferExcel = async (req, res) => {
 
       let totalOffer = 0;
       for (const pedal of personData.pedals) {
-        const fmv = pedal.ptmBuyPrice != null && Number.isFinite(Number(pedal.ptmBuyPrice)) ? Number(pedal.ptmBuyPrice) : null;
-        const buyPrice =
-          pedal.buyPrice != null && Number.isFinite(Number(pedal.buyPrice))
-            ? Number(pedal.buyPrice)
-            : computeBuyPriceFromRules(fmv, buyPriceRules);
-        const rowOffer = buyPrice != null ? Number(buyPrice) : 0;
+        const { fmv, buyPrice, rowOffer } = exportOfferRowValues(pedal, buyPriceRules);
         totalOffer += rowOffer;
 
         rows.push([

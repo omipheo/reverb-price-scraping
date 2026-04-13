@@ -1602,8 +1602,7 @@
                                     ${personData.pedals.map((p, idx) => {
                                         const productId = (p.productId || '').replace(/'/g, "\\'");
                                         const canEdit = !!p.productId || !!p.noMatch || !p.matchedProduct;
-                                        const isAdmin = currentUser && currentUser.role === 'admin';
-                                        const canEditPrices = canEdit && isAdmin;
+                                        const canEditPrices = canEdit;
                                         const fmvVal = p.ptmBuyPrice != null ? p.ptmBuyPrice : '';
                                         const expVal = p.ptmBuyPriceExpiresAt || '-';
                                         const sellVal = p.ptmSellPrice != null ? p.ptmSellPrice : '';
@@ -1899,6 +1898,7 @@
                     if (!productId && currentCalculationId && (!match || !match.row)) {
                         await loadCalculation(currentCalculationId);
                     }
+                    await loadCalculationHistory();
                 } else {
                     alert('Save failed: ' + (data.error || 'Unknown error'));
                 }
@@ -1975,6 +1975,7 @@
                     if (!productId && currentCalculationId && (!match || !match.row)) {
                         await loadCalculation(currentCalculationId);
                     }
+                    await loadCalculationHistory();
                 }
             } catch (err) {
                 console.error(err);
@@ -2046,6 +2047,7 @@
                 alert('Please enter a valid number (0 or greater) or leave empty.');
                 return;
             }
+            if (!shouldConfirmPriceSaveForMatchedProduct(rowId)) return;
             const baseRow = document.querySelector('[data-row-id="' + rowId + '"]');
             const personName = baseRow ? (baseRow.getAttribute('data-person-name') || '') : '';
             const pedal = baseRow ? (baseRow.getAttribute('data-pedal') || '') : '';
@@ -2111,6 +2113,9 @@
                 if (data.success && !productId && currentCalculationId) {
                     const match = findCurrentResultRow(rowId);
                     if (!match || !match.row) await loadCalculation(currentCalculationId);
+                }
+                if (data.success) {
+                    await loadCalculationHistory();
                 }
             } catch (err) {
                 console.error(err);

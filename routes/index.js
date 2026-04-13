@@ -81,11 +81,11 @@ router.patch(
   buyPriceRuleController.updateBuyPriceRules
 );
 
-// Product routes (pricing save is admin-only; checkboxes allowed for all)
+// Product routes (any logged-in user may save prices; feedback checkboxes same)
 const productController = require("../controllers/productController");
-router.patch("/api/products/:productId/ptm-buy-price", requireAuth, requireAdmin, productController.updatePtmBuyPrice);
-router.patch("/api/products/:productId/ptm-sell-price", requireAuth, requireAdmin, productController.updatePtmSellPrice);
-router.patch("/api/products/:productId/buy-price", requireAuth, requireAdmin, productController.updateBuyPrice);
+router.patch("/api/products/:productId/ptm-buy-price", requireAuth, productController.updatePtmBuyPrice);
+router.patch("/api/products/:productId/ptm-sell-price", requireAuth, productController.updatePtmSellPrice);
+router.patch("/api/products/:productId/buy-price", requireAuth, productController.updateBuyPrice);
 
 // User Pedal routes
 const pedalController = require("../controllers/pedalController");

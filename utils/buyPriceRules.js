@@ -50,6 +50,25 @@ function getEffectiveRowBuyPrice(row, rules) {
   return computed != null ? computed : 0;
 }
 
+/** FMV / buy / per-row offer for offer-sheet export (handles string & loose JSON). */
+function exportOfferRowValues(pedal, rules) {
+  if (!pedal || typeof pedal !== "object") {
+    return { fmv: null, buyPrice: null, rowOffer: 0 };
+  }
+  const rawFmv = pedal.ptmBuyPrice;
+  const fmv =
+    rawFmv != null && rawFmv !== "" && Number.isFinite(Number(rawFmv)) ? Number(rawFmv) : null;
+  const rawBuy = pedal.buyPrice;
+  let buyPrice = null;
+  if (rawBuy != null && rawBuy !== "" && Number.isFinite(Number(rawBuy))) {
+    buyPrice = Number(rawBuy);
+  } else if (fmv != null) {
+    buyPrice = computeBuyPriceFromRules(fmv, rules);
+  }
+  const rowOffer = buyPrice != null ? buyPrice : 0;
+  return { fmv, buyPrice, rowOffer };
+}
+
 function recomputePersonTotals(personData, rules) {
   if (!personData || !Array.isArray(personData.pedals)) return { totalPrice: 0, totalOffer: 0 };
   const totalPrice = personData.pedals.reduce(
@@ -75,6 +94,7 @@ module.exports = {
   normalizeBuyPriceRules,
   computeBuyPriceFromRules,
   getEffectiveRowBuyPrice,
+  exportOfferRowValues,
   recomputePersonTotals,
   getActiveBuyPriceRules,
 };
