@@ -1,5 +1,6 @@
 const Product = require("../model/product.mdl");
 const { normalizePedalName } = require("../utils/normalization");
+const cache = require("./productCache");
 
 // Product title substrings that indicate non-pedal (e.g. mic, accessory). If query doesn't imply these, prefer other matches.
 const NON_PEDAL_KEYWORDS = [
@@ -20,10 +21,10 @@ function queryImpliesNonPedal(normalizedQuery) {
 }
 
 // Reject a candidate if it looks like a non-pedal and the query doesn't imply that
-function filterNonPedalCandidate(product, normalizedQuery) {
-  if (!product || !product.normalizedTitle) return true;
+function filterNonPedalCandidate(title, normalizedQuery) {
+  if (!title) return true;
   if (queryImpliesNonPedal(normalizedQuery)) return false; // keep
-  return !productLooksLikeNonPedal(product.normalizedTitle);
+  return !productLooksLikeNonPedal(title);
 }
 
 // Generic words that often match unrelated products (e.g. "pink" -> Roto Pinks strings). If query has
@@ -36,11 +37,9 @@ const GENERIC_WORDS = new Set([
 function getDistinctiveTerms(searchTerms) {
   return searchTerms.filter((t) => t.length >= 2 && !GENERIC_WORDS.has(t.toLowerCase()));
 }
-// Require product to contain at least one distinctive term when query has multiple terms and at least one is distinctive
-function productHasDistinctiveTerm(product, distinctiveTerms) {
-  if (!distinctiveTerms.length || !product?.normalizedTitle) return true;
-  const title = product.normalizedTitle.toLowerCase();
-  return distinctiveTerms.some((term) => title.includes(term.toLowerCase()));
+function productHasDistinctiveTerm(title, distinctiveTerms) {
+  if (!distinctiveTerms.length || !title) return true;
+  return distinctiveTerms.some((term) => title.includes(term));
 }
 
 // 2-letter model codes (e.g. "ce" in CE-20, "re" in RE-20). Require product to contain as a word so "Boss CE-20" doesn't match "Boss RE-20" (RE-20 has "ce" inside "space").
@@ -49,9 +48,8 @@ function getModelCodeTerms(searchTerms) {
   return searchTerms.filter((t) => /^[a-z]{2}$/i.test(t) && !TWO_LETTER_SKIP.has(t.toLowerCase()));
 }
 // Code must appear as a word (not inside "space" or "piece") so CE-20 doesn't match RE-20 Space Echo
-function productHasModelCode(product, modelCodeTerms) {
-  if (!modelCodeTerms.length || !product?.normalizedTitle) return true;
-  const title = product.normalizedTitle.toLowerCase();
+function productHasModelCode(title, modelCodeTerms) {
+  if (!modelCodeTerms.length || !title) return true;
   const isWordChar = (ch) => /[a-z0-9]/.test(ch);
   return modelCodeTerms.every((code) => {
     const c = code.toLowerCase();
@@ -66,13 +64,98 @@ function productHasModelCode(product, modelCodeTerms) {
   });
 }
 
-// Utility: Find best matching product in MongoDB
+// Shared candidate filter — operates on lowercased title strings from cache
+function passesFilters(title, normalized, distinctiveTerms, modelCodeTerms, digitTerms) {
+  if (!filterNonPedalCandidate(title, normalized)) return false;
+  if (!productHasDistinctiveTerm(title, distinctiveTerms)) return false;
+  if (!productHasModelCode(title, modelCodeTerms)) return false;
+  if (digitTerms.length > 0 && !digitTerms.some((d) => title.includes(d))) return false;
+  return true;
+}
+
+// Utility: Find best matching product — uses in-memory cache when available, falls back to DB
 async function findMatchingProduct(pedalName, condition = null) {
+  if (cache.isReady()) {
+    return findMatchingProductCached(pedalName);
+  }
+  // Fallback to DB queries if cache hasn't loaded yet (e.g. during startup)
+  return findMatchingProductDB(pedalName, condition);
+}
+
+// ── In-memory matching (fast path) ──────────────────────────────────
+async function findMatchingProductCached(pedalName) {
   const normalized = normalizePedalName(pedalName);
-  const searchTerms = normalized.split(" ").filter((t) => t.length > 0); // keep short terms for model numbers (e.g. "3", "ph")
+  const normalizedLower = normalized.toLowerCase();
+  const searchTerms = normalized.split(" ").filter((t) => t.length > 0);
   const searchTermsMinLen2 = normalized.split(" ").filter((t) => t.length > 1);
 
-  // Digits in query (e.g. "3" in "Boss PH-3") must appear in product title to avoid PH-2 matching PH-3
+  const digitTerms = searchTerms.filter((t) => /^\d+$/.test(t));
+  const distinctiveTerms = getDistinctiveTerms(searchTermsMinLen2).map((t) => t.toLowerCase());
+  const modelCodeTerms = getModelCodeTerms(searchTerms);
+
+  // 1. Exact match
+  const exact = cache.exactMatch(normalizedLower);
+  if (exact) return cache.getFullProduct(exact._id);
+
+  // 2. Fuzzy match — all terms present (use terms length > 1 to avoid "3" alone matching many)
+  const termsForFuzzy = (searchTermsMinLen2.length > 0 ? searchTermsMinLen2 : searchTerms).map((t) => t.toLowerCase());
+  if (termsForFuzzy.length > 0) {
+    const candidates = cache.fuzzyMatch(termsForFuzzy, 20);
+    for (const c of candidates) {
+      if (passesFilters(c.title, normalizedLower, distinctiveTerms, modelCodeTerms, digitTerms)) {
+        return cache.getFullProduct(c._id);
+      }
+    }
+  }
+
+  // 3. Partial match — at least 2 important terms (length >= 3)
+  if (searchTermsMinLen2.length >= 2) {
+    const importantTerms = searchTermsMinLen2.filter((t) => t.length >= 3).map((t) => t.toLowerCase());
+    if (importantTerms.length >= 2) {
+      const partialTerms = importantTerms.slice(0, 2);
+      const candidates = cache.fuzzyMatch(partialTerms, 20);
+      for (const c of candidates) {
+        if (passesFilters(c.title, normalizedLower, distinctiveTerms, modelCodeTerms, digitTerms)) {
+          return cache.getFullProduct(c._id);
+        }
+      }
+    }
+  }
+
+  // 4. Last resort — brand term + optional digit match
+  const brandTerm = distinctiveTerms.length > 0
+    ? distinctiveTerms[0]
+    : (searchTerms.find((t) => t.length >= 4) || "").toLowerCase();
+  if (brandTerm) {
+    const candidates = cache.filterMatch((title) => {
+      if (!title.includes(brandTerm)) return false;
+      if (digitTerms.length > 0 && !digitTerms.some((d) => title.includes(d))) return false;
+      return true;
+    }, 50);
+
+    let best = null;
+    let bestScore = -1;
+    for (const c of candidates) {
+      if (!filterNonPedalCandidate(c.title, normalizedLower)) continue;
+      if (!productHasModelCode(c.title, modelCodeTerms)) continue;
+      const score = distinctiveTerms.filter((t) => c.title.includes(t)).length;
+      if (score > bestScore) {
+        bestScore = score;
+        best = c;
+      }
+    }
+    if (best) return cache.getFullProduct(best._id);
+  }
+
+  return null;
+}
+
+// ── DB fallback (original logic, used before cache is ready) ────────
+async function findMatchingProductDB(pedalName, condition = null) {
+  const normalized = normalizePedalName(pedalName);
+  const searchTerms = normalized.split(" ").filter((t) => t.length > 0);
+  const searchTermsMinLen2 = normalized.split(" ").filter((t) => t.length > 1);
+
   const digitTerms = searchTerms.filter((t) => /^\d+$/.test(t));
   const distinctiveTerms = getDistinctiveTerms(searchTermsMinLen2);
   const modelCodeTerms = getModelCodeTerms(searchTerms);
@@ -85,7 +168,7 @@ async function findMatchingProduct(pedalName, condition = null) {
 
   if (product) return product;
 
-  // Try fuzzy match using search terms (all terms must be present); use terms length > 1 to avoid "3" alone matching many
+  // Try fuzzy match using search terms (all terms must be present)
   const termsForFuzzy = searchTermsMinLen2.length > 0 ? searchTermsMinLen2 : searchTerms;
   if (termsForFuzzy.length > 0) {
     const regexPattern = termsForFuzzy.map((term) => `(?=.*${escapeRegex(term)})`).join("");
@@ -95,9 +178,9 @@ async function findMatchingProduct(pedalName, condition = null) {
     }).sort({ "priceGuideSummary.all.count": -1 }).limit(20).lean();
 
     for (const c of candidates) {
-      if (!filterNonPedalCandidate(c, normalized)) continue;
-      if (!productHasDistinctiveTerm(c, distinctiveTerms)) continue;
-      if (!productHasModelCode(c, modelCodeTerms)) continue;
+      if (!filterNonPedalCandidate(c.normalizedTitle, normalized)) continue;
+      if (!productHasDistinctiveTerm((c.normalizedTitle || "").toLowerCase(), distinctiveTerms.map((t) => t.toLowerCase()))) continue;
+      if (!productHasModelCode((c.normalizedTitle || "").toLowerCase(), modelCodeTerms)) continue;
       if (digitTerms.length > 0) {
         const title = (c.normalizedTitle || "").toLowerCase();
         if (!digitTerms.some((d) => title.includes(d))) continue;
@@ -106,7 +189,7 @@ async function findMatchingProduct(pedalName, condition = null) {
     }
   }
 
-  // Try partial match - at least 2 key terms must match (for cases like "ts-9" vs "ts9")
+  // Try partial match
   if (searchTermsMinLen2.length >= 2) {
     const importantTerms = searchTermsMinLen2.filter((t) => t.length >= 3);
     if (importantTerms.length >= 2) {
@@ -117,9 +200,9 @@ async function findMatchingProduct(pedalName, condition = null) {
       }).sort({ "priceGuideSummary.all.count": -1 }).limit(20).lean();
 
       for (const c of candidates) {
-        if (!filterNonPedalCandidate(c, normalized)) continue;
-        if (!productHasDistinctiveTerm(c, distinctiveTerms)) continue;
-        if (!productHasModelCode(c, modelCodeTerms)) continue;
+        if (!filterNonPedalCandidate(c.normalizedTitle, normalized)) continue;
+        if (!productHasDistinctiveTerm((c.normalizedTitle || "").toLowerCase(), distinctiveTerms.map((t) => t.toLowerCase()))) continue;
+        if (!productHasModelCode((c.normalizedTitle || "").toLowerCase(), modelCodeTerms)) continue;
         if (digitTerms.length > 0) {
           const title = (c.normalizedTitle || "").toLowerCase();
           if (!digitTerms.some((d) => title.includes(d))) continue;
@@ -129,7 +212,7 @@ async function findMatchingProduct(pedalName, condition = null) {
     }
   }
 
-  // Last resort: use distinctive term first (e.g. "keeley") so "Light Pink Keeley Katana" doesn't match "Light Gain" products
+  // Last resort
   const brandTerm = distinctiveTerms.length > 0
     ? distinctiveTerms[0]
     : searchTerms.find((t) => t.length >= 4);
@@ -150,9 +233,8 @@ async function findMatchingProduct(pedalName, condition = null) {
     let best = null;
     let bestScore = -1;
     for (const c of lastResortCandidates) {
-      if (!filterNonPedalCandidate(c, normalized)) continue;
-      if (!productHasModelCode(c, modelCodeTerms)) continue;
-      // Prefer product that contains more distinctive terms (e.g. "Keeley Katana" over "Keeley Omni Reverb" for "Light Pink Keeley Katana")
+      if (!filterNonPedalCandidate(c.normalizedTitle, normalized)) continue;
+      if (!productHasModelCode((c.normalizedTitle || "").toLowerCase(), modelCodeTerms)) continue;
       const title = (c.normalizedTitle || "").toLowerCase();
       const score = distinctiveTerms.filter((t) => title.includes(t.toLowerCase())).length;
       if (score > bestScore) {

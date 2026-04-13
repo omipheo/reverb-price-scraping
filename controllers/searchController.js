@@ -17,105 +17,108 @@ const searchPedals = async (req, res) => {
       return res.status(400).json({ error: "Pedals array is required" });
     }
 
+    const BATCH_SIZE = 8;
     const results = [];
 
-    for (const pedal of pedals) {
-      const pedalName = typeof pedal === "string" ? pedal : pedal.name || "";
-      const condition =
-        typeof pedal === "object" ? pedal.condition : null;
+    // Process pedals in parallel batches for speed
+    for (let i = 0; i < pedals.length; i += BATCH_SIZE) {
+      const batch = pedals.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(batch.map(async (pedal) => {
+        const pedalName = typeof pedal === "string" ? pedal : pedal.name || "";
+        const condition = typeof pedal === "object" ? pedal.condition : null;
+        const product = await findMatchingProduct(pedalName, condition);
 
-      const product = await findMatchingProduct(pedalName, condition);
+        if (product) {
+          const price = calculatePriceFromTransactions(product, condition);
+          const reverbPgHistPrice = price;
+          const reverbPgLink = buildReverbPgLink(product);
+          const reverbMarketSoldPrice = product.reverbMarketSoldPrice ?? null;
+          const reverbMarketSoldLink = product.reverbMarketSoldLink ?? buildReverbMarketSoldLink(product);
+          const ptmBuyPrice = product.ptmBuyPrice != null ? product.ptmBuyPrice : null;
+          const buyPrice = product.buyPrice != null ? product.buyPrice : computeBuyPriceFromRules(ptmBuyPrice, buyPriceRules);
+          const ptmBuyPriceExpiresAt = product.ptmBuyPriceExpiresAt || null;
+          const expStr = ptmBuyPriceExpiresAt ? (ptmBuyPriceExpiresAt.toISOString ? ptmBuyPriceExpiresAt.toISOString().slice(0, 10) : ptmBuyPriceExpiresAt) : null;
+          const ptmSellPrice = product.ptmSellPrice != null ? product.ptmSellPrice : calculatePtmSellPrice(product);
+          const ptmSellPriceExpiresAt = product.ptmSellPriceExpiresAt || null;
+          const sellExpStr = ptmSellPriceExpiresAt ? (ptmSellPriceExpiresAt.toISOString ? ptmSellPriceExpiresAt.toISOString().slice(0, 10) : ptmSellPriceExpiresAt) : null;
 
-      if (product) {
-        const price = calculatePriceFromTransactions(product, condition);
-        const reverbPgHistPrice = price;
-        const reverbPgLink = buildReverbPgLink(product);
-        const reverbMarketSoldPrice = product.reverbMarketSoldPrice ?? null;
-        const reverbMarketSoldLink = product.reverbMarketSoldLink ?? buildReverbMarketSoldLink(product);
-        const ptmBuyPrice = product.ptmBuyPrice != null ? product.ptmBuyPrice : null;
-        const buyPrice = product.buyPrice != null ? product.buyPrice : computeBuyPriceFromRules(ptmBuyPrice, buyPriceRules);
-        const ptmBuyPriceExpiresAt = product.ptmBuyPriceExpiresAt || null;
-        const expStr = ptmBuyPriceExpiresAt ? (ptmBuyPriceExpiresAt.toISOString ? ptmBuyPriceExpiresAt.toISOString().slice(0, 10) : ptmBuyPriceExpiresAt) : null;
-        const ptmSellPrice = product.ptmSellPrice != null ? product.ptmSellPrice : calculatePtmSellPrice(product);
-        const ptmSellPriceExpiresAt = product.ptmSellPriceExpiresAt || null;
-        const sellExpStr = ptmSellPriceExpiresAt ? (ptmSellPriceExpiresAt.toISOString ? ptmSellPriceExpiresAt.toISOString().slice(0, 10) : ptmSellPriceExpiresAt) : null;
-
-        if (price !== null) {
-          const offer = buyPrice != null ? buyPrice : 0;
-
-          results.push({
-            pedalName,
-            condition: condition || "Unknown",
-            matchedProduct: product.title,
-            brand: product.brand,
-            price,
-            offer,
-            hasPriceGuide: true,
-            productId: product.canonicalProductId,
-            reverbPgHistPrice,
-            reverbPgLink,
-            reverbMarketSoldPrice,
-            reverbMarketSoldLink,
-            amtListedOnReverbMarket: null,
-            ptmBuyPrice,
-            buyPrice,
-            ptmBuyPriceExpiresAt: expStr,
-            ptmSellPrice,
-            ptmSellPriceExpiresAt: sellExpStr,
-            noMatch: false,
-            partialMatch: false,
-            matchNotes: "",
-          });
+          if (price !== null) {
+            const offer = buyPrice != null ? buyPrice : 0;
+            return {
+              pedalName,
+              condition: condition || "Unknown",
+              matchedProduct: product.title,
+              brand: product.brand,
+              price,
+              offer,
+              hasPriceGuide: true,
+              productId: product.canonicalProductId,
+              reverbPgHistPrice,
+              reverbPgLink,
+              reverbMarketSoldPrice,
+              reverbMarketSoldLink,
+              amtListedOnReverbMarket: null,
+              ptmBuyPrice,
+              buyPrice,
+              ptmBuyPriceExpiresAt: expStr,
+              ptmSellPrice,
+              ptmSellPriceExpiresAt: sellExpStr,
+              noMatch: false,
+              partialMatch: false,
+              matchNotes: "",
+            };
+          } else {
+            return {
+              pedalName,
+              condition: condition || "Unknown",
+              matchedProduct: product.title,
+              brand: product.brand,
+              price: null,
+              offer: 0,
+              hasPriceGuide: false,
+              productId: product.canonicalProductId,
+              reverbPgHistPrice: null,
+              reverbPgLink,
+              reverbMarketSoldPrice,
+              reverbMarketSoldLink,
+              amtListedOnReverbMarket: null,
+              ptmBuyPrice,
+              buyPrice,
+              ptmBuyPriceExpiresAt: expStr,
+              ptmSellPrice,
+              ptmSellPriceExpiresAt: sellExpStr,
+              noMatch: false,
+              partialMatch: false,
+              matchNotes: "",
+            };
+          }
         } else {
-          results.push({
+          return {
             pedalName,
             condition: condition || "Unknown",
-            matchedProduct: product.title,
-            brand: product.brand,
+            matchedProduct: null,
+            brand: null,
             price: null,
             offer: 0,
             hasPriceGuide: false,
-            productId: product.canonicalProductId,
+            productId: null,
             reverbPgHistPrice: null,
-            reverbPgLink,
-            reverbMarketSoldPrice,
-            reverbMarketSoldLink,
+            reverbPgLink: null,
+            reverbMarketSoldPrice: null,
+            reverbMarketSoldLink: null,
             amtListedOnReverbMarket: null,
-            ptmBuyPrice,
-            buyPrice,
-            ptmBuyPriceExpiresAt: expStr,
-            ptmSellPrice,
-            ptmSellPriceExpiresAt: sellExpStr,
-            noMatch: false,
+            ptmBuyPrice: null,
+            buyPrice: null,
+            ptmBuyPriceExpiresAt: null,
+            ptmSellPrice: null,
+            ptmSellPriceExpiresAt: null,
+            noMatch: true,
             partialMatch: false,
             matchNotes: "",
-          });
+          };
         }
-      } else {
-        results.push({
-          pedalName,
-          condition: condition || "Unknown",
-          matchedProduct: null,
-          brand: null,
-          price: null,
-          offer: 0,
-          hasPriceGuide: false,
-          productId: null,
-          reverbPgHistPrice: null,
-          reverbPgLink: null,
-          reverbMarketSoldPrice: null,
-          reverbMarketSoldLink: null,
-          amtListedOnReverbMarket: null,
-          ptmBuyPrice: null,
-          buyPrice: null,
-          ptmBuyPriceExpiresAt: null,
-          ptmSellPrice: null,
-          ptmSellPriceExpiresAt: null,
-          noMatch: true,
-          partialMatch: false,
-          matchNotes: "",
-        });
-      }
+      }));
+      results.push(...batchResults);
     }
 
     // Sort by price (lowest to highest)

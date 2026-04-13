@@ -60,4 +60,7 @@ const ProductSchema = new Schema({
   createdAt: { type: Date, default: Date.now },
 });
 
+// Compound index for the matching queries (hasPriceGuide + normalizedTitle)
+ProductSchema.index({ hasPriceGuide: 1, normalizedTitle: 1 });
+
 module.exports = model("Product", ProductSchema);
