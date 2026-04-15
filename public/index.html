@@ -1643,7 +1643,7 @@
                                             <td class="text-center">${canEdit ? `<input type="checkbox" ${noMatch ? 'checked' : ''} onchange="savePedalFeedback('${productId}', '${calcId}', this.checked, document.getElementById('partial-${rowId}').checked, '${rowId}')" id="nomatch-${rowId}" />` : '-'}</td>
                                             <td class="text-center">${canEdit ? `<input type="checkbox" ${partialMatch ? 'checked' : ''} onchange="savePedalFeedback('${productId}', '${calcId}', document.getElementById('nomatch-${rowId}').checked, this.checked, '${rowId}')" id="partial-${rowId}" />` : '-'}</td>
                                             <td>
-                                                ${canEdit ? `<input type="text" class="form-control form-control-sm d-inline-block" style="width:220px" value="${matchNotesVal}" id="notes-${rowId}" onchange="savePedalFeedback('${productId}', '${calcId}', document.getElementById('nomatch-${rowId}').checked, document.getElementById('partial-${rowId}').checked, '${rowId}')" placeholder="Notes" />` : '-'}
+                                                ${canEdit ? `<input type="text" class="form-control form-control-sm d-inline-block" style="width:220px" value="${matchNotesVal}" id="notes-${rowId}" placeholder="Notes" /> <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="savePedalFeedback('${productId}', '${calcId}', document.getElementById('nomatch-${rowId}').checked, document.getElementById('partial-${rowId}').checked, '${rowId}')">Save</button>` : '-'}
                                             </td>
                                             <td>${p.condition}</td>
                                             <td>${p.brand || '-'}</td>
