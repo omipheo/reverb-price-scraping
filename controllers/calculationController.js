@@ -44,7 +44,7 @@ async function maybeSendDailyMatchFeedbackNotification({ now, noMatch, partialMa
   const end = new Date(start);
   end.setUTCDate(end.getUTCDate() + 1);
 
-  const [totalNew, noMatchCount, partialMatchCount, notesCount] = await Promise.all([
+  const [totalNew, noMatchCount, partialMatchCount, notesCount, entries] = await Promise.all([
     MatchFeedbackLog.countDocuments({
       createdAt: { $gte: start, $lt: end },
       $or: [
@@ -59,7 +59,34 @@ async function maybeSendDailyMatchFeedbackNotification({ now, noMatch, partialMa
       createdAt: { $gte: start, $lt: end },
       matchNotes: { $exists: true, $ne: "" },
     }),
+    // Raw feedback entries so the recipient can act on each item directly from the email.
+    MatchFeedbackLog.find({
+      createdAt: { $gte: start, $lt: end },
+      $or: [
+        { noMatch: true },
+        { partialMatch: true },
+        { matchNotes: { $exists: true, $ne: "" } },
+      ],
+    })
+      .sort({ createdAt: 1 })
+      .limit(200)
+      .select("pedal personName noMatch partialMatch matchNotes createdAt")
+      .lean(),
   ]);
+
+  // Build a readable list of feedback rows for the email body
+  const formatEntry = (e) => {
+    const flags = [];
+    if (e.noMatch) flags.push("No Match");
+    if (e.partialMatch) flags.push("Partial Match");
+    const flagStr = flags.length ? ` [${flags.join(", ")}]` : "";
+    const note = (e.matchNotes || "").trim();
+    const noteStr = note ? ` — ${note}` : "";
+    return `• ${e.pedal || "(unknown)"}${flagStr}${noteStr}`;
+  };
+  const entriesText = entries.length
+    ? entries.map(formatEntry).join("\n")
+    : "(no detailed entries)";
 
   const summary = [
     `Daily match feedback for ${dateKey}.`,
@@ -68,6 +95,9 @@ async function maybeSendDailyMatchFeedbackNotification({ now, noMatch, partialMa
     `No Matches: ${noMatchCount}`,
     `Partial Matches: ${partialMatchCount}`,
     `Notes Count: ${notesCount}`,
+    "",
+    "Details:",
+    entriesText,
   ].join("\n");
 
   const payload = {
@@ -77,6 +107,7 @@ async function maybeSendDailyMatchFeedbackNotification({ now, noMatch, partialMa
     partialMatchCount,
     notesCount,
     summary,
+    entries, // raw rows (pedal, personName, noMatch, partialMatch, matchNotes, createdAt)
   };
 
   // Always log so you can see it even without external webhooks.
