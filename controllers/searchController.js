@@ -121,13 +121,7 @@ const searchPedals = async (req, res) => {
       results.push(...batchResults);
     }
 
-    // Sort by price (lowest to highest)
-    results.sort((a, b) => {
-      if (!a.price && !b.price) return 0;
-      if (!a.price) return 1;
-      if (!b.price) return -1;
-      return a.price - b.price;
-    });
+    // Preserve user input order (results match the order pedals were pasted/uploaded)
 
     // FMV = sum of PTM Buy Prices only (client requirement)
     const totalPrice = results.reduce((sum, r) => sum + (r.ptmBuyPrice != null ? r.ptmBuyPrice : 0), 0);

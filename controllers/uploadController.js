@@ -313,13 +313,7 @@ const uploadFile = async (req, res) => {
         }
       }
 
-      // Sort by price (lowest to highest)
-      pedalResults.sort((a, b) => {
-        if (!a.price && !b.price) return 0;
-        if (!a.price) return 1;
-        if (!b.price) return -1;
-        return a.price - b.price;
-      });
+      // Preserve user input order (results match the order pedals were pasted/uploaded)
 
       // FMV = sum of PTM Buy Prices only
       const totalPrice = pedalResults.reduce(
