@@ -1,6 +1,7 @@
 const Product = require("../model/product.mdl");
 const { normalizePedalName } = require("../utils/normalization");
 const cache = require("./productCache");
+const { findMatchWithClaude } = require("./aiMatcher");
 
 // Product title substrings that indicate non-pedal (e.g. mic, accessory). If query doesn't imply these, prefer other matches.
 const NON_PEDAL_KEYWORDS = [
@@ -34,12 +35,38 @@ const GENERIC_WORDS = new Set([
   "mini", "micro", "standard", "v1", "v2", "mk", "mki", "mkii", "usa", "us", "uk", "ii", "iii",
   "pedal", "pedals", "guitar", "bass", "amp", "box", "new", "old", "pro", "full", "small", "big",
 ]);
+
+// Variant modifier words — when user types plain "Boss DS-1", we should NOT pick a title containing
+// these words unless the user explicitly asked for them. Avoids "Boss DS-1" → "DS-1 40th Anniversary".
+const VARIANT_WORDS = new Set([
+  "mini", "micro", "lil", "anniversary", "limited", "edition", "ltd",
+  "deluxe", "compact", "macro", "maxi", "junior", "jr",
+  "vintage", "reissue", "nano",
+  "40th", "50th", "30th", "25th", "20th", "10th", "5th",
+]);
 function getDistinctiveTerms(searchTerms) {
   return searchTerms.filter((t) => t.length >= 2 && !GENERIC_WORDS.has(t.toLowerCase()));
 }
 function productHasDistinctiveTerm(title, distinctiveTerms) {
   if (!distinctiveTerms.length || !title) return true;
-  return distinctiveTerms.some((term) => title.includes(term));
+  // Require at least one distinctive term to appear as a whole word, not just a substring.
+  // Prevents "lunar" matching inside "lunareclipse", or "fuzz" matching inside "fuzzrocious".
+  return distinctiveTerms.some((term) => titleHasWord(title, term));
+}
+
+// Check whether `term` appears in `title` as a whole word (boundary on both sides).
+// Prevents "lunar" matching inside "lunareclipse", or "fuzz" inside "fuzzrocious".
+function titleHasWord(title, term) {
+  if (!title || !term) return false;
+  const isWordChar = (ch) => /[a-z0-9]/.test(ch);
+  let idx = title.indexOf(term);
+  while (idx !== -1) {
+    const before = idx === 0 ? " " : title[idx - 1];
+    const after = idx + term.length >= title.length ? " " : title[idx + term.length];
+    if (!isWordChar(before) && !isWordChar(after)) return true;
+    idx = title.indexOf(term, idx + 1);
+  }
+  return false;
 }
 
 // 2-letter model codes (e.g. "ce" in CE-20, "re" in RE-20). Require product to contain as a word so "Boss CE-20" doesn't match "Boss RE-20" (RE-20 has "ce" inside "space").
@@ -69,7 +96,8 @@ function passesFilters(title, normalized, distinctiveTerms, modelCodeTerms, digi
   if (!filterNonPedalCandidate(title, normalized)) return false;
   if (!productHasDistinctiveTerm(title, distinctiveTerms)) return false;
   if (!productHasModelCode(title, modelCodeTerms)) return false;
-  if (digitTerms.length > 0 && !digitTerms.some((d) => title.includes(d))) return false;
+  // Digit must appear as a whole word (so "2" in query doesn't match "2w" or "20" in title)
+  if (digitTerms.length > 0 && !digitTerms.some((d) => titleHasWord(title, d))) return false;
   return true;
 }
 
@@ -97,39 +125,89 @@ async function findMatchingProductCached(pedalName) {
   const exact = cache.exactMatch(normalizedLower);
   if (exact) return cache.getFullProduct(exact._id);
 
+  // Helper: among candidates that pass filters, prefer the closest match.
+  // Score (lower is better):
+  //   - -10 per query distinctive term that appears as a whole word in title
+  //   - -3 × longest contiguous span (k≥2) of query terms appearing in the title
+  //     (so "electro harmonix soul food transparent" → "Soul Food Overdrive" beats "Bass Soul Food":
+  //      the former has a 4-word contiguous match, the latter only 2)
+  //   - +1 per extra word in title beyond the query length
+  //   - +5 per variant modifier word (Mini, Lil, Anniversary, etc.) the user didn't ask for
+  // Popularity breaks ties via the input order (already sorted by count desc).
+  const queryWordCount = searchTerms.length;
+  const querySet = new Set(searchTerms.map((t) => t.toLowerCase()));
+  const queryLower = searchTerms.map((t) => t.toLowerCase());
+  const queryDistinctiveLower = distinctiveTerms.map((t) => t.toLowerCase());
+  const VARIANT_PENALTY = 5;
+  const CONTIGUOUS_PER_WORD = 3;
+  const QUERY_MATCH_REWARD = 10;
+  const longestContiguousMatch = (title) => {
+    for (let k = queryLower.length; k >= 2; k--) {
+      for (let i = 0; i <= queryLower.length - k; i++) {
+        if (title.includes(queryLower.slice(i, i + k).join(" "))) return k;
+      }
+    }
+    return 0;
+  };
+  const pickBestCandidate = (candidates) => {
+    let best = null;
+    let bestScore = Infinity;
+    for (const c of candidates) {
+      if (!passesFilters(c.title, normalizedLower, distinctiveTerms, modelCodeTerms, digitTerms)) continue;
+      const titleWords = c.title.split(" ").filter(Boolean);
+      const extra = Math.max(0, titleWords.length - queryWordCount);
+      let variantPenalty = 0;
+      for (const w of titleWords) {
+        if (VARIANT_WORDS.has(w) && !querySet.has(w)) variantPenalty++;
+      }
+      let queryMatches = 0;
+      for (const t of queryDistinctiveLower) {
+        if (titleHasWord(c.title, t)) queryMatches++;
+      }
+      const contiguous = longestContiguousMatch(c.title) * CONTIGUOUS_PER_WORD;
+      const score = -queryMatches * QUERY_MATCH_REWARD + extra + variantPenalty * VARIANT_PENALTY - contiguous;
+      if (score < bestScore) {
+        bestScore = score;
+        best = c;
+      }
+    }
+    return best;
+  };
+
   // 2. Fuzzy match — all terms present (use terms length > 1 to avoid "3" alone matching many)
   const termsForFuzzy = (searchTermsMinLen2.length > 0 ? searchTermsMinLen2 : searchTerms).map((t) => t.toLowerCase());
   if (termsForFuzzy.length > 0) {
     const candidates = cache.fuzzyMatch(termsForFuzzy, 20);
-    for (const c of candidates) {
-      if (passesFilters(c.title, normalizedLower, distinctiveTerms, modelCodeTerms, digitTerms)) {
-        return cache.getFullProduct(c._id);
-      }
-    }
+    const best = pickBestCandidate(candidates);
+    if (best) return cache.getFullProduct(best._id);
   }
 
-  // 3. Partial match — at least 2 important terms (length >= 3)
+  // 3. Partial match — try with progressively fewer terms.
+  // Start with all important terms (>=3 chars), then drop one at a time until we find candidates.
+  // This ensures specific products like "Electro-Harmonix Soul Food" aren't missed when query
+  // has 5+ terms but only the first 2 are too generic ("electro", "harmonix").
   if (searchTermsMinLen2.length >= 2) {
     const importantTerms = searchTermsMinLen2.filter((t) => t.length >= 3).map((t) => t.toLowerCase());
     if (importantTerms.length >= 2) {
-      const partialTerms = importantTerms.slice(0, 2);
-      const candidates = cache.fuzzyMatch(partialTerms, 20);
-      for (const c of candidates) {
-        if (passesFilters(c.title, normalizedLower, distinctiveTerms, modelCodeTerms, digitTerms)) {
-          return cache.getFullProduct(c._id);
-        }
+      for (let n = importantTerms.length; n >= 2; n--) {
+        const partialTerms = importantTerms.slice(0, n);
+        const candidates = cache.fuzzyMatch(partialTerms, 20);
+        const best = pickBestCandidate(candidates);
+        if (best) return cache.getFullProduct(best._id);
       }
     }
   }
 
-  // 4. Last resort — brand term + optional digit match
+  // 4. Last resort — only return if confidence is high (most distinctive terms match as whole words).
+  // Otherwise, fall through to Claude — substring matches like "lunar" inside "lunareclipse" produce
+  // false positives we can't trust.
   const brandTerm = distinctiveTerms.length > 0
     ? distinctiveTerms[0]
     : (searchTerms.find((t) => t.length >= 4) || "").toLowerCase();
   if (brandTerm) {
     const candidates = cache.filterMatch((title) => {
-      if (!title.includes(brandTerm)) return false;
-      if (digitTerms.length > 0 && !digitTerms.some((d) => title.includes(d))) return false;
+      if (!titleHasWord(title, brandTerm)) return false;
+      if (digitTerms.length > 0 && !digitTerms.some((d) => titleHasWord(title, d))) return false;
       return true;
     }, 50);
 
@@ -138,13 +216,28 @@ async function findMatchingProductCached(pedalName) {
     for (const c of candidates) {
       if (!filterNonPedalCandidate(c.title, normalizedLower)) continue;
       if (!productHasModelCode(c.title, modelCodeTerms)) continue;
-      const score = distinctiveTerms.filter((t) => c.title.includes(t)).length;
+      // Score by number of distinctive terms appearing as whole words (not substrings)
+      const score = distinctiveTerms.filter((t) => titleHasWord(c.title, t)).length;
       if (score > bestScore) {
         bestScore = score;
         best = c;
       }
     }
-    if (best) return cache.getFullProduct(best._id);
+    // Require at least 2 whole-word distinctive matches.
+    // Single-word vague queries (like "Prototype" alone) fall through to Claude — too risky to guess.
+    const minRequired = Math.max(2, Math.ceil(distinctiveTerms.length / 2));
+    if (best && distinctiveTerms.length >= 2 && bestScore >= minRequired) {
+      return cache.getFullProduct(best._id);
+    }
+    // Otherwise fall through to Claude
+  }
+
+  // 5. AI fallback — ask Claude to pick from top candidates when string matching fails
+  try {
+    const aiMatch = await findMatchWithClaude(pedalName, normalized);
+    if (aiMatch) return aiMatch;
+  } catch (err) {
+    console.error("[matching] AI fallback failed:", err?.message || err);
   }
 
   return null;

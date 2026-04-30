@@ -85,6 +85,22 @@ async function getFullProduct(id) {
   return Product.findById(id);
 }
 
+/**
+ * Return top N candidates by popularity (count desc) for AI fallback matching.
+ * Optionally pre-filter by a search term. Returns array of { _id, title }.
+ */
+function topCandidates(searchTerms = [], limit = 30) {
+  const results = [];
+  const lowered = searchTerms.map((t) => t.toLowerCase()).filter(Boolean);
+  for (const entry of _cache) {
+    if (lowered.length === 0 || lowered.some((t) => entry.title.includes(t))) {
+      results.push(entry);
+      if (results.length >= limit) break;
+    }
+  }
+  return results;
+}
+
 module.exports = {
   loadProductCache,
   isReady,
@@ -92,4 +108,5 @@ module.exports = {
   fuzzyMatch,
   filterMatch,
   getFullProduct,
+  topCandidates,
 };

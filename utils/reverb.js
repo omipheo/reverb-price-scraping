@@ -22,8 +22,15 @@ function reverbQueryFromProduct(product) {
   return combined.replace(/\s+/g, "+");
 }
 
-// Helper: build Reverb Price Guide link (from slug or brand + name)
+// Helper: build Reverb Price Guide link.
+// Prefer the product page (e.g. reverb.com/p/xotic-sp-compressor#price-guide) when we have a slug.
+// Fall back to the price-guide search page only when no slug exists.
 function buildReverbPgLink(product) {
+  if (!product) return null;
+  const slug = (product.slug || "").trim();
+  if (slug) {
+    return `https://reverb.com/p/${encodeURIComponent(slug)}#price-guide`;
+  }
   const query = reverbQueryFromProduct(product);
   if (!query) return null;
   return `https://reverb.com/price-guide?query=${encodeURIComponent(query).replace(/%20/g, "+")}`;
