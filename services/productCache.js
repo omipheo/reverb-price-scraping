@@ -87,13 +87,25 @@ async function getFullProduct(id) {
 
 /**
  * Return top N candidates by popularity (count desc) for AI fallback matching.
- * Optionally pre-filter by a search term. Returns array of { _id, title }.
+ * Filters by whole-word match on any of the given search terms — prevents "kep" matching
+ * inside "kep100" so Claude doesn't see misleading wrong-brand candidates.
  */
 function topCandidates(searchTerms = [], limit = 30) {
   const results = [];
   const lowered = searchTerms.map((t) => t.toLowerCase()).filter(Boolean);
+  const isWordChar = (ch) => /[a-z0-9]/.test(ch);
+  const titleHasWord = (title, term) => {
+    let idx = title.indexOf(term);
+    while (idx !== -1) {
+      const before = idx === 0 ? " " : title[idx - 1];
+      const after = idx + term.length >= title.length ? " " : title[idx + term.length];
+      if (!isWordChar(before) && !isWordChar(after)) return true;
+      idx = title.indexOf(term, idx + 1);
+    }
+    return false;
+  };
   for (const entry of _cache) {
-    if (lowered.length === 0 || lowered.some((t) => entry.title.includes(t))) {
+    if (lowered.length === 0 || lowered.some((t) => titleHasWord(entry.title, t))) {
       results.push(entry);
       if (results.length >= limit) break;
     }

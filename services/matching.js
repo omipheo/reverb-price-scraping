@@ -49,9 +49,16 @@ function getDistinctiveTerms(searchTerms) {
 }
 function productHasDistinctiveTerm(title, distinctiveTerms) {
   if (!distinctiveTerms.length || !title) return true;
-  // Require at least one distinctive term to appear as a whole word, not just a substring.
-  // Prevents "lunar" matching inside "lunareclipse", or "fuzz" matching inside "fuzzrocious".
-  return distinctiveTerms.some((term) => titleHasWord(title, term));
+  // Count distinctive terms appearing as whole words in title (not substrings).
+  // Require at least 2 whole-word matches when query has 2+ distinctive terms;
+  // 1 match for single-term queries. Prevents "marshall rat" matching "Marshall Regenerator"
+  // (where "rat" is a substring of "regenerator" but not a word).
+  let wordMatches = 0;
+  for (const term of distinctiveTerms) {
+    if (titleHasWord(title, term)) wordMatches++;
+  }
+  const required = distinctiveTerms.length >= 2 ? 2 : 1;
+  return wordMatches >= required;
 }
 
 // Check whether `term` appears in `title` as a whole word (boundary on both sides).

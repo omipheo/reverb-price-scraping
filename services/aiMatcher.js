@@ -80,16 +80,21 @@ async function findMatchWithClaude(pedalName, normalizedQuery) {
   // Build a numbered list of candidate titles for Claude
   const candidateLines = candidates.map((c, i) => `${i + 1}. ${c.title}`).join("\n");
 
-  const prompt = `You are matching guitar pedal names from user input to product titles in a database.
+  const prompt = `You are matching guitar pedal names from user input to product titles in a database. Accuracy matters more than coverage — when in doubt, return "none".
 
 User input: "${pedalName}"
 
 Candidate products (numbered list):
 ${candidateLines}
 
-Pick the single best match. Consider typos, abbreviations, alternate brand spellings, and model variations.
-- If exactly one candidate is clearly the best match, respond with ONLY its number (e.g. "7").
-- If NO candidate is a reasonable match for this pedal, respond with ONLY "none".
+Strict matching rules (ALL must apply for a match):
+1. The candidate must be the SAME BRAND as the user input (Marshall ≠ ProCo, ozfuzz ≠ Hartman, etc.).
+2. The candidate must be the SAME MODEL or a clear renaming/typo of it (e.g. "TS-9" matches "TS9 Tube Screamer"). A different model from the same brand is NOT a match (e.g. "Marshall Rat" does NOT match "Marshall Regenerator", "Crazy Tube Circuits Heatseeker" does NOT match "Crazy Tube Circuits Falcon").
+3. The candidate must be the SAME PRODUCT TYPE (a pedal query should not match a guitar, amp, pickup, or footswitch-only product unless the user explicitly asked for that).
+4. If the user asked for a specific variant or version (e.g. "v2", "mini", "deluxe", "bass"), the candidate should match that variant — but if user did NOT specify, prefer the base model.
+
+If a candidate clearly satisfies all rules, respond with ONLY its number (e.g. "7").
+If NO candidate is a confident match, respond with ONLY "none". It is better to say "none" than to guess.
 
 Do not include any explanation. Respond with just the number or "none".`;
 
