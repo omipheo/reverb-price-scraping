@@ -227,11 +227,13 @@ const uploadFile = async (req, res) => {
           const reverbPgLink = buildReverbPgLink(product);
           const reverbMarketSoldPrice = product.reverbMarketSoldPrice ?? null;
           const reverbMarketSoldLink = product.reverbMarketSoldLink ?? buildReverbMarketSoldLink(product);
-          const ptmBuyPrice = ptmBuyFromSheet ?? product.ptmBuyPrice;
+          // FMV (ptmBuyPrice): prefer sheet value, then admin manual, then Reverb PG Hist Price as default.
+          const ptmBuyPrice = ptmBuyFromSheet ?? (product.ptmBuyPrice != null ? product.ptmBuyPrice : reverbPgHistPrice);
           const buyPrice = product.buyPrice != null ? product.buyPrice : computeBuyPriceFromRules(ptmBuyPrice, buyPriceRules);
           const ptmBuyPriceExpiresAt = product.ptmBuyPriceExpiresAt || null;
           const expStr = ptmBuyPriceExpiresAt ? (ptmBuyPriceExpiresAt.toISOString ? ptmBuyPriceExpiresAt.toISOString().slice(0, 10) : ptmBuyPriceExpiresAt) : null;
-          const ptmSellPrice = product.ptmSellPrice != null ? product.ptmSellPrice : calculatePtmSellPrice(product);
+          // Sell Price: temporarily hidden until proper formula is decided. Manual override (with exp) still shown.
+          const ptmSellPrice = product.ptmSellPrice != null ? product.ptmSellPrice : null;
           const ptmSellPriceExpiresAt = product.ptmSellPriceExpiresAt || null;
           const sellExpStr = ptmSellPriceExpiresAt ? (ptmSellPriceExpiresAt.toISOString ? ptmSellPriceExpiresAt.toISOString().slice(0, 10) : ptmSellPriceExpiresAt) : null;
 
