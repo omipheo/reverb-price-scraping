@@ -1604,9 +1604,9 @@
                                         const canEdit = !!p.productId || !!p.noMatch || !p.matchedProduct;
                                         const canEditPrices = canEdit;
                                         const fmvVal = p.ptmBuyPrice != null ? p.ptmBuyPrice : '';
-                                        const expVal = p.ptmBuyPriceExpiresAt || '-';
+                                        const expVal = formatDateShort(p.ptmBuyPriceExpiresAt);
                                         const sellVal = p.ptmSellPrice != null ? p.ptmSellPrice : '';
-                                        const sellExpVal = p.ptmSellPriceExpiresAt || '-';
+                                        const sellExpVal = formatDateShort(p.ptmSellPriceExpiresAt);
                                         const buyPriceVal = p.buyPrice != null ? p.buyPrice : (fmvVal !== '' ? buyPriceFromFmv(parseFloat(fmvVal)) : '');
                                         const buyPriceDisplay = buyPriceVal !== '' && buyPriceVal != null ? buyPriceVal : '';
                                         const rowId = 'ptm-row-' + personName.replace(/\s/g, '-') + '-' + idx;
@@ -1793,6 +1793,14 @@
             return computeBuyPriceFromRules(fmv, buyPriceRules);
         }
 
+        // Format date string YYYY-MM-DD → M/D/YY (no leading zeros, 2-digit year)
+        function formatDateShort(s) {
+            if (!s) return '-';
+            const m = String(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if (!m) return s;
+            return `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}/${m[1].slice(-2)}`;
+        }
+
         function findCurrentResultRow(rowId) {
             const rowEl = document.querySelector('[data-row-id="' + rowId + '"]');
             if (!rowEl || !currentResults) return null;
@@ -1957,7 +1965,7 @@
                 const data = await response.json();
                 if (data.success && data.ptmSellPriceExpiresAt) {
                     const expEl = document.getElementById('ptm-sell-exp-' + rowId);
-                    if (expEl) expEl.textContent = data.ptmSellPriceExpiresAt.slice(0, 10);
+                    if (expEl) expEl.textContent = formatDateShort(data.ptmSellPriceExpiresAt);
                 } else if (data.success) {
                     const expEl = document.getElementById('ptm-sell-exp-' + rowId);
                     if (expEl) expEl.textContent = ptmSellPrice != null ? 'Saved' : '-';
@@ -2086,7 +2094,7 @@
                 const data = await response.json();
                 if (data.success && data.ptmBuyPriceExpiresAt) {
                     const expEl = document.getElementById('ptm-exp-' + rowId);
-                    if (expEl) expEl.textContent = data.ptmBuyPriceExpiresAt.slice(0, 10);
+                    if (expEl) expEl.textContent = formatDateShort(data.ptmBuyPriceExpiresAt);
                 } else if (data.success) {
                     const expEl = document.getElementById('ptm-exp-' + rowId);
                     if (expEl) expEl.textContent = ptmBuyPrice != null ? 'Saved' : '-';
