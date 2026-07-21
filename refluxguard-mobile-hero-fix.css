@@ -1,0 +1,182 @@
+/* ============================================================
+   REFLUX GUARD — MOBILE HERO FIX
+   Paste this into:
+     GHL → Funnel → Settings → Custom CSS
+     (append to the existing custom CSS block)
+
+   Scope: only fires on screens ≤ 767px wide.
+   Desktop view is NOT touched — it stays exactly as it is now.
+
+   Two sections targeted:
+     .hero-mobile-1  →  "Still Using A Wedge Pillow That Falls Off…"
+     .hero-mobile-2  →  "A wedge for your entire mattress that stays underneath…"
+
+   To add a class to a section in GHL:
+     Open the section → right panel → Advanced → CSS Classes
+     Type: hero-mobile-1   (or hero-mobile-2)
+     Save.
+
+   To swap to mobile-cropped images:
+     Upload the 2 portrait crops to GHL Media Library, then replace
+     the two REPLACE_WITH_… URLs below with the public URLs GHL gives.
+   ============================================================ */
+
+@media (max-width: 767px) {
+
+  /* ----------------------------------------------------------
+     HERO 1 — "Still Using A Wedge Pillow That Falls Off…"
+     ---------------------------------------------------------- */
+
+  .hero-mobile-1 {
+    background-image: url('REPLACE_WITH_HERO_1_MOBILE_URL') !important;
+    background-position: center center !important;
+    background-size: cover !important;
+    background-repeat: no-repeat !important;
+    min-height: 560px !important;
+    position: relative !important;
+    padding: 48px 20px !important;
+  }
+
+  /* Dark overlay so the white headline stays readable */
+  .hero-mobile-1::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(0, 0, 0, 0.50), rgba(0, 0, 0, 0.65));
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  /* Keep all real content above the overlay */
+  .hero-mobile-1 > * {
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Shrink the huge headline so it doesn't break into 11 lines */
+  .hero-mobile-1 h1,
+  .hero-mobile-1 h2,
+  .hero-mobile-1 .headline,
+  .hero-mobile-1 .heading {
+    font-size: 30px !important;
+    line-height: 1.18 !important;
+    margin-bottom: 16px !important;
+    text-align: center !important;
+  }
+
+  .hero-mobile-1 p,
+  .hero-mobile-1 .subhead,
+  .hero-mobile-1 .sub-headline {
+    font-size: 16px !important;
+    line-height: 1.4 !important;
+    text-align: center !important;
+  }
+
+
+  /* ----------------------------------------------------------
+     HERO 2 — "A wedge for your entire mattress that stays underneath…"
+     ---------------------------------------------------------- */
+
+  .hero-mobile-2 {
+    background-image: url('REPLACE_WITH_HERO_2_MOBILE_URL') !important;
+    background-position: center center !important;
+    background-size: cover !important;
+    background-repeat: no-repeat !important;
+    min-height: 640px !important;
+    position: relative !important;
+    padding: 48px 20px !important;
+  }
+
+  .hero-mobile-2::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(0, 0, 0, 0.50), rgba(0, 0, 0, 0.65));
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .hero-mobile-2 > * {
+    position: relative;
+    z-index: 2;
+  }
+
+  .hero-mobile-2 h1,
+  .hero-mobile-2 h2,
+  .hero-mobile-2 .headline,
+  .hero-mobile-2 .heading {
+    font-size: 30px !important;
+    line-height: 1.18 !important;
+    margin-bottom: 16px !important;
+    text-align: center !important;
+  }
+
+  .hero-mobile-2 p,
+  .hero-mobile-2 .subhead,
+  .hero-mobile-2 .sub-headline {
+    font-size: 16px !important;
+    line-height: 1.4 !important;
+    text-align: center !important;
+  }
+
+  /* CTA button — full-width-ish on mobile, easy to tap */
+  .hero-mobile-2 a.cta,
+  .hero-mobile-2 .button,
+  .hero-mobile-2 button {
+    display: block !important;
+    width: 100% !important;
+    max-width: 360px !important;
+    margin: 20px auto 12px !important;
+    padding: 16px 24px !important;
+    font-size: 18px !important;
+    text-align: center !important;
+  }
+
+  /* Trust signals (★ 4.7 Google Rating | TrustedSite | 10-Year Warranty) */
+  .hero-mobile-2 .trust,
+  .hero-mobile-2 .trust-bar,
+  .hero-mobile-2 small {
+    font-size: 13px !important;
+    text-align: center !important;
+    display: block !important;
+  }
+
+}
+
+
+/* ============================================================
+   OPTIONAL POLISH (uncomment if you want to extend the fix)
+   These two sections currently work on mobile but could look
+   cleaner. Add the matching CSS class in GHL to enable.
+   ============================================================ */
+
+/*
+@media (max-width: 767px) {
+
+  // "You've Already Done the Hard Part" — strengthen overlay so
+  // the text doesn't compete with the faded background image
+  .hero-mobile-3::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.70));
+    z-index: 1;
+    pointer-events: none;
+  }
+  .hero-mobile-3 { position: relative !important; }
+  .hero-mobile-3 > * { position: relative; z-index: 2; }
+
+  // "Here's Everything You Get" — same treatment
+  .hero-mobile-4::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.70));
+    z-index: 1;
+    pointer-events: none;
+  }
+  .hero-mobile-4 { position: relative !important; }
+  .hero-mobile-4 > * { position: relative; z-index: 2; }
+
+}
+*/
